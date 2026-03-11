@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ranjana's Smart Home</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&family=Poppins:wght@400;500&display=swap" rel="stylesheet">
+<style>
+body {
+  margin:0;
+  font-family:'Poppins',sans-serif;
+  background:linear-gradient(270deg,#ff9a9e,#fad0c4,#fbc2eb,#a6c1ee);
+  background-size:800% 800%;
+  animation:gradientBG 25s ease infinite;
+  color:#111;
+  transition:background 0.5s,color 0.5s;
+}
+body.night {
+  background:linear-gradient(270deg,#0f0c29,#302b63,#24243e);
+  color:#fff;
+}
+@keyframes gradientBG{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}
+
+.header {padding:20px;text-align:center; display:flex;justify-content:space-between; align-items:center;}
+.header h2{font-family:'Orbitron',sans-serif;font-size:32px;letter-spacing:2px;font-weight:700;margin:0;}
+.header-right{display:flex;align-items:center;gap:8px;}
+.wifi {font-size:14px;}
+
+.container {padding:15px;}
+.card {
+  background:rgba(255,255,255,0.12);
+  backdrop-filter:blur(15px);
+  border-radius:18px;
+  padding:15px;
+  margin-bottom:15px;
+  color:inherit;
+  transition:background 0.3s,color 0.3s;
+}
+body.night .card {background:rgba(0,0,0,0.4);}
+.card h3 {margin-bottom:12px;font-weight:600;font-family:'Poppins',sans-serif;letter-spacing:1px;color:inherit;}
+
+.device {
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  margin-bottom:12px;
+  padding:10px;
+  border-radius:14px;
+  box-shadow:0 6px 12px rgba(0,0,0,0.25);
+  transition:0.3s;
+  position:relative;
+}
+.device:hover {transform:translateY(-2px);}
+.device-left {display:flex;align-items:center;gap:10px;}
+.device-left span.emoji{font-size:22px;}
+.device-right {display:flex;align-items:center;gap:8px;flex-wrap:wrap;position:relative;}
+
+/* Switch */
+.switch {position:relative;width:50px;height:24px;}
+.switch input {opacity:0;width:50px;height:24px;position:absolute;top:0;left:0;z-index:2;cursor:pointer;}
+.slider {position:absolute;top:0;left:0;right:0;bottom:0;background-color:#ff4d4d;border-radius:25px;transition:.4s;z-index:1;box-shadow:0 0 5px rgba(0,0,0,0.3);}
+.slider:before {content:"";position:absolute;height:20px;width:20px;left:2px;bottom:2px;background:white;border-radius:50%;transition:.4s;}
+input:checked + .slider {background:#00ff99;box-shadow:0 0 10px #00ff99;}
+input:checked + .slider:before {transform:translateX(26px);}
+
+/* Popups */
+.popup {display:none;position:fixed;z-index:9999;background:rgba(0,0,0,0.85);border-radius:15px;padding:15px;box-shadow:0 10px 25px rgba(0,0,0,0.6);text-align:center;color:inherit;backdrop-filter:blur(10px);}
+.popup input {width:50px;padding:5px;margin:5px;text-align:center;border-radius:5px;border:none;outline:none;}
+.popup h4 {margin:0 0 10px 0;font-weight:600;}
+.countdown {font-size:14px;margin-bottom:6px;color:#00ffd0;font-weight:600;}
+.close-btn,.popup button {margin-top:10px;padding:5px 10px;border:none;border-radius:8px;cursor:pointer;font-weight:600;}
+.close-btn {background:#e53935;color:#fff;}
+.popup button.set-btn {background:#1a73e8;color:#fff;margin-right:5px;}
+
+/* Master switch */
+.master-switch{
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  gap:10px;
+  margin-top:10px;
+  padding:6px;
+  background:linear-gradient(45deg,#ff6a00,#ee0979);
+  border-radius:20px;
+  box-shadow:0 5px 12px rgba(0,0,0,0.3);
+}
+.master-switch button{
+  padding:5px 10px;
+  border:none;
+  border-radius:12px;
+  font-weight:600;
+  cursor:pointer;
+  flex:1;
+  color:#fff;
+  transition:0.3s;
+  background:#666;
+}
+.master-switch button.on{background:#00ff99;color:#000;}
+.master-switch button.off{background:#ff4d4d;color:#fff;}
+
+/* Voice popup */
+#voicePopup {width:300px;top:15%;left:50%;transform:translateX(-50%);display:none;text-align:center;}
+#voiceProgressWrapper{background:rgba(255,255,255,0.2);border-radius:10px;height:12px;width:100%;overflow:hidden;margin:10px 0;}
+#voiceProgress{height:100%;width:0%;background:#00ff99;transition:width 0.2s;}
+#voiceText{color:#fff;font-size:0.95rem;font-weight:500;}
+
+.timerCircle{position:absolute;width:32px;height:32px;left:-40px;top:0;}
+.timerCircle svg{transform:rotate(-90deg);}
+.timerCircle circle{fill:none;stroke:#00ffd0;stroke-width:4;stroke-dasharray:100;stroke-dashoffset:100;transition:stroke-dashoffset 1s linear;}
+
+@media(max-width:600px){
+  .device-right {flex-wrap:wrap; gap:5px;}
+  .switch {width:40px;height:20px;}
+  .slider:before {width:16px;height:16px;}
+  input:checked + .slider:before {transform:translateX(20px);}
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h2>Ranjana's Smart Home</h2>
+  <div class="header-right">
+    <div class="wifi">WiFi: <span id="wifiNum">--</span> | Signal: <span id="wifiSignal">--</span> | ESP: <span id="espStatus" style="color:#00ff00;font-weight:600;">Online</span></div>
+    <button onclick="toggleNightMode()" style="padding:3px 8px;border:none;border-radius:6px;cursor:pointer;">🌙/☀</button>
+    <button onclick="startVoice()" style="padding:8px 12px;border:none;border-radius:6px;background:#1a73e8;color:#fff;cursor:pointer;">🎤</button>
+  </div>
+</div>
+
+<div id="voicePopup" class="popup">
+  <h4>Listening...</h4>
+  <div id="voiceProgressWrapper"><div id="voiceProgress"></div></div>
+  <div id="voiceText">Receiving...</div>
+</div>
+
+<div class="container">
+  <div class="card">
+    <h3>Room 1</h3>
+    <div id="room1"></div>
+    <div class="master-switch">
+      <button id="master1On" onclick="masterToggle(1,true)">All ON</button>
+      <button id="master1Off" onclick="masterToggle(1,false)">All OFF</button>
+    </div>
+  </div>
+  <div class="card">
+    <h3>Room 2</h3>
+    <div id="room2"></div>
+    <div class="master-switch">
+      <button id="master2On" onclick="masterToggle(2,true)">All ON</button>
+      <button id="master2Off" onclick="masterToggle(2,false)">All OFF</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const devices=[
+  {id:0,name:"Light",room:1,icon:"💡"},
+  {id:1,name:"Fan",room:1,icon:"🌀"},
+  {id:2,name:"Tube",room:1,icon:"💡"},
+  {id:3,name:"Socket",room:1,icon:"🔌"},
+  {id:4,name:"Light",room:2,icon:"💡"},
+  {id:5,name:"Fan",room:2,icon:"🌀"},
+  {id:6,name:"Bulb",room:2,icon:"💡"},
+  {id:7,name:"Socket",room:2,icon:"🔌"}
+];
+let timers=Array(8).fill(0);
+
+function createDeviceHTML(d){
+  return `<div class="device">
+    <div class="device-left">
+      <span class="emoji">${d.icon}</span>
+      <span>${d.name}</span>
+    </div>
+    <div class="device-right">
+      <div class="timerCircle">
+        <svg><circle r="15" cx="16" cy="16"></circle></svg>
+      </div>
+      <button onclick="openPopup('timer${d.id}')">⏱</button>
+      <button onclick="openPopup('stats${d.id}')">📊</button>
+      <label class="switch">
+        <input type="checkbox" id="relay${d.id}" onchange="toggleRelay(${d.id})">
+        <span class="slider"></span>
+      </label>
+    </div>
+    <div class="popup" id="timer${d.id}">
+      <h4>Set Timer</h4>
+      <div class="countdown" id="countdown${d.id}">Remaining: --</div>
+      <input type="number" id="hh${d.id}" placeholder="hh"> :
+      <input type="number" id="mm${d.id}" placeholder="mm"> :
+      <input type="number" id="ss${d.id}" placeholder="ss"><br>
+      <button onclick="setTimerPreset(${d.id},5)">5 min</button>
+      <button onclick="setTimerPreset(${d.id},10)">10 min</button>
+      <button onclick="setTimerPreset(${d.id},30)">30 min</button>
+      <button onclick="setTimerPreset(${d.id},60)">60 min</button><br>
+      <button onclick="setTimer(${d.id})">Set</button>
+      <button onclick="closePopup('timer${d.id}')">Close</button>
+    </div>
+    <div class="popup" id="stats${d.id}">
+      <h4>Usage Stats</h4>
+      <div class="usage-stat" id="last${d.id}">Last ON: --</div>
+      <div class="usage-stat" id="today${d.id}">Today: --</div>
+      <div class="usage-stat" id="total${d.id}">Total: --</div>
+      <button onclick="closePopup('stats${d.id}')">Close</button>
+    </div>
+  </div>`;
+}
+
+function loadDevices(){
+  devices.forEach(d=>{
+    (d.room===1?document.getElementById("room1"):document.getElementById("room2")).innerHTML+=createDeviceHTML(d);
+  });
+}
+window.addEventListener('scroll', ()=>{document.querySelectorAll('.popup').forEach(p=>p.style.display='none');});
+function toggleNightMode(){document.body.classList.toggle('night');}
+
+// Fix toggle relay properly
+function toggleRelay(id){
+  const checkbox = document.getElementById(`relay${id}`);
+  checkbox.checked = !checkbox.checked;
+  console.log(`Device ${id} is now ${checkbox.checked?'ON':'OFF'}`);
+}
+
+// Timer functions
+function setTimerPreset(id,min){document.getElementById(`hh${id}`).value=Math.floor(min/60);document.getElementById(`mm${id}`).value=min%60;document.getElementById(`ss${id}`).value=0;}
+function setTimer(id){alert("ESP not connected"); closePopup(`timer${id}`);}
+function masterToggle(room,state){
+  const onBtn=document.getElementById(`master${room}On`);
+  const offBtn=document.getElementById(`master${room}Off`);
+  if(state){onBtn.classList.add('on'); onBtn.classList.remove('off'); offBtn.classList.remove('on'); offBtn.classList.add('off');}
+  else{offBtn.classList.add('off'); offBtn.classList.remove('on'); onBtn.classList.remove('on'); onBtn.classList.add('off');}
+  devices.filter(d=>d.room===room).forEach(d=>{document.getElementById(`relay${d.id}`).checked=state;});
+}
+
+// Voice recognition with grammatical correction
+if('webkitSpeechRecognition' in window || 'SpeechRecognition' in window){
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const recognition = new SpeechRecognition();
+  recognition.lang='en-US';
+  recognition.interimResults = true;
+  recognition.continuous = false;
+
+  function startVoice(){
+    const popup = document.getElementById('voicePopup');
+    const progress = document.getElementById('voiceProgress');
+    const textEl = document.getElementById('voiceText');
+    popup.style.display = 'block';
+    progress.style.width = '0%';
+    textEl.innerText = "Receiving...";
+    let width=0;
+    const interval=setInterval(()=>{width+=5;if(width>100)width=100;progress.style.width=width+'%';},200);
+
+    recognition.start();
+
+    recognition.onresult = function(event){
+      let transcript = '';
+      for(let i=0;i<event.results.length;i++){
+        transcript += event.results[i][0].transcript;
+      }
+      transcript = transcript.replace(/\bof\b/g,'off'); // small grammar fix
+      transcript = transcript.replace(/\btwo\b/g,'2');
+      transcript = transcript.replace(/\bone\b/g,'1');
+      textEl.innerText = transcript;
+    }
+
+    recognition.onend = function(){
+      clearInterval(interval);
+      progress.style.width = '100%';
+      const cmd = textEl.innerText.toLowerCase();
+      const roomMatch = cmd.match(/room (\d)/);
+      const targetRoom = roomMatch ? parseInt(roomMatch[1]) : null;
+
+      if(targetRoom!==null){
+        devices.filter(d=>d.room===targetRoom).forEach(d=>{
+          if(cmd.includes(d.name.toLowerCase())) document.getElementById(`relay${d.id}`).checked = cmd.includes("on");
+        });
+      } else {
+        const d = devices.find(d=>cmd.includes(d.name.toLowerCase()));
+        if(d) document.getElementById(`relay${d.id}`).checked = cmd.includes("on");
+      }
+      popup.style.display='none';
+    }
+  }
+}else{function startVoice(){alert("Voice not supported");}}
+
+loadDevices();
+</script>
+</body>
+</html>
