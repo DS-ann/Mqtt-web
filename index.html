@@ -1,247 +1,332 @@
 <!DOCTYPE html>
 <html>
 <head>
-<meta charset="UTF-8">
-<title>Ranjana's Smart Home</title>
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ranjana Smart Home</title>
+
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600&family=Roboto:wght@400;500&display=swap" rel="stylesheet">
+
 <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://twemoji.maxcdn.com/v/latest/twemoji.min.js" crossorigin="anonymous"></script>
+
 <style>
-body{margin:0;font-family:Arial;background:#0f172a;color:white;}
-header{padding:16px;background:#1e293b;text-align:center;}
-.container{padding:14px;}
-.room{background:#1e293b;border-radius:16px;padding:14px;margin-bottom:16px;}
-.device{display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid #334155;}
-.device:last-child{border-bottom:none;}
-.name{font-size:15px;}
-.control{display:flex;align-items:center;gap:10px;}
-.timer,.usageBtn{cursor:pointer;font-size:18px;user-select:none;}
-.time{font-size:12px;color:#94a3b8;}
-.switch{position:relative;display:inline-block;width:50px;height:26px;}
-.switch input{opacity:0;width:0;height:0;}
-.slider{position:absolute;cursor:pointer;top:0;left:0;right:0;bottom:0;background:#475569;transition:.3s;border-radius:30px;}
-.slider:before{position:absolute;content:"";height:20px;width:20px;left:3px;bottom:3px;background:white;transition:.3s;border-radius:50%;}
+body{
+  font-family:'Roboto',sans-serif;
+  background:#0f172a;
+  color:white;
+  margin:0;
+  text-align:center;
+}
+.header{
+  background:#1e293b;
+  padding:15px;
+  margin:10px;
+  border-radius:12px;
+}
+.header h2{font-family:'Poppins',sans-serif;}
+.room{
+  background:#1e293b;
+  margin:15px;
+  padding:15px;
+  border-radius:12px;
+}
+.device{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  background:#334155;
+  padding:10px;
+  margin:8px 0;
+  border-radius:10px;
+  transition:0.3s;
+}
+.device.on{
+  background:#1e3a2f;
+  box-shadow:0 0 10px #22c55e;
+}
+.icon{
+  font-size:22px;
+  width:30px;
+  text-align:center;
+}
+.device.on .fan{animation:spin 1s linear infinite;}
+.device.on .light{animation:glow 1.5s infinite alternate;}
+@keyframes spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}
+@keyframes glow{from{text-shadow:0 0 5px #fff}to{text-shadow:0 0 20px yellow}}
+.toggle{position:relative;width:50px;height:26px;}
+.toggle input{display:none;}
+.slider{
+  position:absolute;
+  cursor:pointer;
+  background:#64748b;
+  border-radius:34px;
+  top:0; left:0; right:0; bottom:0;
+}
+.slider:before{
+  position:absolute;
+  content:"";
+  height:20px;
+  width:20px;
+  left:3px;
+  bottom:3px;
+  background:white;
+  border-radius:50%;
+  transition:0.3s;
+}
 input:checked + .slider{background:#22c55e;}
 input:checked + .slider:before{transform:translateX(24px);}
-.roomButtons{margin-top:12px;display:flex;gap:10px;}
-button{flex:1;padding:10px;border:none;border-radius:10px;background:#3b82f6;color:white;}
-canvas{background:white;border-radius:12px;margin-top:12px;}
-#voiceBtn{position:fixed;bottom:20px;right:20px;width:60px;height:60px;border-radius:50%;background:#22c55e;display:flex;align-items:center;justify-content:center;font-size:26px;}
-#voiceText{position:fixed;bottom:90px;right:20px;background:#1e293b;padding:10px;border-radius:8px;display:none;}
+.timerCircle{
+  width:42px;
+  height:42px;
+  border-radius:50%;
+  background:conic-gradient(#22c55e 0deg,#1e293b 0deg);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:10px;
+}
+.iconBtn{
+  background:none;
+  border:none;
+  font-size:18px;
+  color:white;
+  cursor:pointer;
+}
+#voicePopup{
+  position:fixed;
+  top:50%;
+  left:50%;
+  transform:translate(-50%,-50%);
+  background:#1e293b;
+  padding:20px 30px;
+  border-radius:12px;
+  font-size:20px;
+  display:none;
+  z-index:1000;
+  font-family:Poppins;
+}
+.mic{
+  position:fixed;
+  bottom:30px;
+  right:30px;
+  width:60px;
+  height:60px;
+  border-radius:50%;
+  background:#22c55e;
+  font-size:28px;
+  border:none;
+  color:white;
+  cursor:pointer;
+}
+.wave{
+  position:fixed;
+  bottom:30px;
+  right:30px;
+  width:60px;
+  height:60px;
+  border-radius:50%;
+  background:#22c55e;
+  opacity:0.3;
+  animation:wave 2s infinite;
+  display:none;
+}
+.wave:nth-child(2){animation-delay:0.5s}
+.wave:nth-child(3){animation-delay:1s}
+@keyframes wave{0%{transform:scale(1);opacity:0.5}100%{transform:scale(2.5);opacity:0}}
+#updateBtn{
+  background:#3b82f6;
+  border:none;
+  padding:8px 16px;
+  margin:5px;
+  border-radius:8px;
+  color:white;
+  font-weight:bold;
+  cursor:pointer;
+}
+#updateBtn:hover{background:#2563eb;}
 </style>
 </head>
+
 <body>
 
-<header>
-<h2>馃彔 Ranjana's Smart Home</h2>
-<div id="mqttState">MQTT connecting...</div>
-<div id="wifiInfo">WiFi waiting...</div>
-</header>
-
-<div class="container">
-
-<!-- Rooms -->
-<div class="room" id="room1">
-<h3>Room 1</h3>
-<div class="roomButtons">
-<button onclick="roomOn(0)">Room 1 ON</button>
-<button onclick="roomOff(0)">Room 1 OFF</button>
-</div>
+<div class="header">
+<h2>🏠 Ranjana Smart Home</h2>
+MQTT: <span id="mqttStatus">Connecting...</span><br>
+WiFi: <span id="wifiSSID">--</span><br>
+Signal: <span id="wifiRSSI">--</span><br>
+<button id="updateBtn" onclick="requestStatus()">🔄 Update Status</button>
 </div>
 
-<div class="room" id="room2">
-<h3>Room 2</h3>
-<div class="roomButtons">
-<button onclick="roomOn(4)">Room 2 ON</button>
-<button onclick="roomOff(4)">Room 2 OFF</button>
-</div>
-</div>
+<div id="rooms"></div>
 
 <h3>Usage Statistics</h3>
-<canvas id="usageChart"></canvas>
+<canvas id="usageChart" width="350" height="200"></canvas>
 
-</div>
-
-<div id="voiceBtn" onclick="startVoice()">馃帳</div>
-<div id="voiceText"></div>
+<div id="voicePopup">Listening...</div>
+<div class="wave"></div><div class="wave"></div><div class="wave"></div>
+<button class="mic" onclick="startVoice()">🎤</button>
 
 <script>
-/* MQTT */
-const client = mqtt.connect("wss://5dba91287f8248c1a30195053d3862ed.s1.eu.hivemq.cloud:8884/mqtt",
-{username:"Debarghya_Sannigrahi", password:"Dsann#5956"});
+// ---------------- MQTT ----------------
+const broker="wss://5dba91287f8248c1a30195053d3862ed.s1.eu.hivemq.cloud:8884/mqtt"
+const topicCmd="home/esp32/commands"
+const client=mqtt.connect(broker,{username:"Debarghya_Sannigrahi",password:"Dsann#5956"})
 
-let lastESP=Date.now();
-let lastCmdTime=0;
+// ---------------- DEVICES ----------------
+let usageData=new Array(8).fill(0)
+let timers=new Array(8).fill(0)
+let timerTotal=new Array(8).fill(0)
+let startTimes=new Array(8).fill(0)
+const deviceNames=["Light","Fan","Tube","Socket","Light","Fan","Bulb","Socket"]
+const icons=["💡","🌀","💡","🔌","💡","🌀","💡","🔌"]
+const roomsDiv=document.getElementById("rooms")
 
+// ---------------- CREATE ROOM HTML ----------------
+for(let i=0;i<8;i++){
+  let room=i<4?1:2
+  let roomDiv=document.getElementById("room"+room)
+  if(!roomDiv){
+    roomDiv=document.createElement("div")
+    roomDiv.className="room"
+    roomDiv.id="room"+room
+    roomDiv.innerHTML="<h3>Room "+room+"</h3>"
+    roomsDiv.appendChild(roomDiv)
+  }
+  let iconClass=(i==1||i==5)?"fan":"light"
+  roomDiv.innerHTML+=`
+    <div class="device">
+      <div class="icon ${iconClass}" id="icon${i}">${icons[i]}</div>
+      <div>${deviceNames[i]}</div>
+      <div class="timerCircle" id="circle${i}"><span id="timer${i}"></span></div>
+      <label class="toggle"><input type="checkbox" data-id="${i}"><span class="slider"></span></label>
+      <button class="iconBtn" onclick="setTimer(${i})">⏱</button>
+      <button class="iconBtn" onclick="showUsage(${i})">📊</button>
+    </div>
+  `
+}
+
+// ---------------- LOCAL STORAGE TIMERS ----------------
+if(localStorage.getItem("dashboardTimers")){
+  let saved=JSON.parse(localStorage.getItem("dashboardTimers"))
+  for(let i=0;i<8;i++){ timers[i]=saved[i]||0; startTimes[i]=Date.now()-(saved[i]*1000) }
+} else { for(let i=0;i<8;i++){ startTimes[i]=Date.now() } }
+
+// ---------------- TOGGLE DEVICES ----------------
+document.querySelectorAll("input").forEach(el=>{
+  el.onchange=()=>{ client.publish(topicCmd,el.dataset.id+(el.checked?"1":"0")) }
+})
+
+// ---------------- MQTT ----------------
 client.on("connect",()=>{
-  document.getElementById("mqttState").innerText="MQTT Connected";
-  client.subscribe("home/esp32/update");
-  client.subscribe("home/esp32/wifi_status");
-});
+  document.getElementById("mqttStatus").innerText="Connected"
+  client.subscribe("home/esp32/update")
+  client.subscribe("home/esp32/wifi_status")
+})
+client.on("message",(topic,msg)=>{ parseData(msg.toString()) })
 
-client.on("close",()=>{
-  document.getElementById("mqttState").innerText="MQTT reconnecting...";
-  setTimeout(()=>location.reload(),3000);
-});
-
-client.on("message",(topic,msg)=>{
-  msg=msg.toString();
-  lastESP=Date.now();
-  if(topic==="home/esp32/wifi_status") document.getElementById("wifiInfo").innerText=msg;
-  if(topic==="home/esp32/update") parseData(msg);
-});
-
-/* RELAYS */
-const devices=[
-  {name:"馃挕 Light", room:0},{name:"馃挕 Tube", room:0},
-  {name:"馃寑 Fan", room:0},{name:"馃攲 Socket", room:0},
-  {name:"馃挕 Light", room:1},{name:"馃挕 Bulb", room:1},
-  {name:"馃寑 Fan", room:1},{name:"馃攲 Socket", room:1}
-];
-
-let relayState=[0,0,0,0,0,0,0,0];
-let relayTimers=[0,0,0,0,0,0,0,0];
-let relayEndTime=[0,0,0,0,0,0,0,0];
-let usageData=[0,0,0,0,0,0,0,0];
-
-/* CREATE UI */
-function createDeviceUI(){
-  devices.forEach((dev,i)=>{
-    const roomDiv=document.getElementById(dev.room===0?"room1":"room2");
-    const d=document.createElement('div'); d.className='device';
-    d.innerHTML=`<div><div class="name">${dev.name}</div><div class="time" id="timer${i}"></div></div>
-    <div class="control">
-    <span class="timer" onclick="setTimer(${i})">鈴�</span>
-    <span class="usageBtn" onclick="showUsage(${i})">鈩癸笍</span>
-    <label class="switch"><input type="checkbox" data-id="${i}"><span class="slider"></span></label>
-    </div>`;
-    roomDiv.appendChild(d);
-  });
-
-  document.querySelectorAll("input[type=checkbox]").forEach(el=>{
-    el.addEventListener("change",()=>{
-      if(Date.now()-lastCmdTime<120) return;
-      lastCmdTime=Date.now();
-      sendRelay(el.dataset.id,el.checked);
-    });
-  });
-}
-createDeviceUI();
-
-/* SEND RELAY */
-function sendRelay(id,state){ client.publish("home/esp32/commands", id+(state? "1":"0")); }
-
-/* TIMER */
-function setTimer(id){
-  let m=prompt("Enter timer in minutes");
-  if(!m) return;
-  client.publish("home/esp32/commands","T"+id+m);
-  relayEndTime[id]=Date.now()+parseInt(m)*60000;
-}
-
-/* USAGE */
-function showUsage(id){ alert(`Relay ${id+1} total: ${usageData[id]} min`); }
-
-/* PARSER */
 function parseData(msg){
-  if(msg.length<1) return;
-  let startIdx = msg.startsWith("a:")?0:4;
-
-  let r = msg.split(',')[0].substring(1); 
-  let parts = msg.split(',');
-  let timers=[], usage=[];
-  for(let i=0;i<4;i++){
-    timers[i]=parseInt((parts[i+1]||"").replace('T',''))||0;
-    usage[i]=parseInt((parts[i+5]||"").replace('U',''))||0;
+  if(msg.startsWith("S")){
+    let p=msg.split(",")
+    document.getElementById("wifiSSID").innerText=p[0].substring(1)
+    document.getElementById("wifiRSSI").innerText=p[1].substring(1)+" dBm"
+    return
   }
-
+  // For dashboard, we don't update timer from ESP anymore
+  let offset=msg.startsWith("a:")?0:4
+  let parts=msg.split(",")
+  let r=parts[0].substring(3)
   for(let i=0;i<4;i++){
-    let idx = startIdx+i;
-    let sw=document.querySelector('input[data-id="'+idx+'"]');
-    let newState = r[i]=="1";
-    if(sw && sw.checked!==newState) sw.checked=newState;
-
-    relayTimers[idx]=timers[i]*60000;
-    relayEndTime[idx]=timers[i]>0 ? Date.now()+timers[i]*60000 : 0;
-    document.getElementById("timer"+idx).innerText = timers[i]>0 ? "Timer "+timers[i]+" min" : "";
-    usageData[idx]=usage[i];
+    let id=offset+i
+    let sw=document.querySelector('input[data-id="'+id+'"]')
+    if(sw){ let state=r[i]=="1"; sw.checked=state; let dev=sw.closest(".device"); state?dev.classList.add("on"):dev.classList.remove("on") }
   }
-
-  chart.data.datasets[0].data = usageData.slice(0,4);
-  chart.data.datasets[1].data = usageData.slice(4,8);
-  chart.update();
+  for(let i=0;i<4;i++){ let id=offset+i; usageData[id]=parseInt(parts[i+5].replace("U",""))||0 }
+  updateGraph()
 }
 
-/* TIMER COUNTDOWN UPDATE */
-setInterval(()=>{
-  const now=Date.now();
-  relayEndTime.forEach((end,i)=>{
-    if(end>0){
-      const diff=Math.max(0,end-now);
-      const min=Math.floor(diff/60000);
-      const sec=Math.floor((diff%60000)/1000);
-      document.getElementById("timer"+i).innerText=`Timer ${min}m ${sec}s`;
-      if(diff<=0){ relayEndTime[i]=0; document.getElementById("timer"+i).innerText=""; }
-    }
-  });
-},1000);
+// ---------------- USAGE ----------------
+function showUsage(id){ alert(deviceNames[id]+" Usage: "+usageData[id]+" minutes") }
+function setTimer(id){ let m=prompt("Timer minutes"); if(!m) return; timers[id]=parseInt(m)*60; startTimes[id]=Date.now(); localStorage.setItem("dashboardTimers",JSON.stringify(timers)) }
 
-/* CHART */
+// ---------------- DASHBOARD TIMER ----------------
+setInterval(()=>{
+  for(let i=0;i<8;i++){
+    if(timers[i]>0){
+      let elapsed=Math.floor((Date.now()-startTimes[i])/1000)
+      let remaining=Math.max(timers[i]-elapsed,0)
+      let m=Math.floor(remaining/60); let s=remaining%60; if(s<10)s="0"+s
+      document.getElementById("timer"+i).innerText=m+":"+s
+      let progress=(remaining/timers[i])*360
+      document.getElementById("circle"+i).style.background=`conic-gradient(#22c55e ${progress}deg,#1e293b 0deg)`
+    } else {
+      document.getElementById("timer"+i).innerText=""
+      document.getElementById("circle"+i).style.background="conic-gradient(#22c55e 0deg,#1e293b 0deg)"
+    }
+  }
+},1000)
+
+// ---------------- USAGE CHART ----------------
 const chart=new Chart(document.getElementById("usageChart"),{
   type:"bar",
-  data:{
-    labels:["R1","R2","R3","R4","R5","R6","R7","R8"],
-    datasets:[
-      {label:"Room 1", data:usageData.slice(0,4), backgroundColor:"#3b82f6"},
-      {label:"Room 2", data:usageData.slice(4,8), backgroundColor:"#22c55e"}
-    ]
-  },
+  data:{labels:deviceNames,datasets:[
+    {label:"Room 1",data:usageData.slice(0,4).map(v=>v/60),backgroundColor:"#3b82f6"},
+    {label:"Room 2",data:usageData.slice(4,8).map(v=>v/60),backgroundColor:"#22c55e"}
+  ]},
   options:{
     responsive:true,
-    scales:{y:{beginAtZero:true, title:{display:true,text:"Minutes"}}}
+    plugins:{tooltip:{enabled:true,mode:'index',intersect:false}},
+    scales:{y:{beginAtZero:true,title:{display:true,text:"Minutes"}}}
   }
-});
+})
+function updateGraph(){ chart.data.datasets[0].data=usageData.slice(0,4).map(v=>v/60); chart.data.datasets[1].data=usageData.slice(4,8).map(v=>v/60); chart.update() }
 
-/* ROOM BUTTONS */
-function roomOn(start){ for(let i=start;i<4+start;i++) sendRelay(i,true); }
-function roomOff(start){ for(let i=start;i<4+start;i++) sendRelay(i,false); }
-
-/* VOICE */
+// ---------------- VOICE ----------------
+function speak(t){ let u=new SpeechSynthesisUtterance(t); speechSynthesis.speak(u) }
 function startVoice(){
-  const SpeechRecognition=window.SpeechRecognition||window.webkitSpeechRecognition;
-  if(!SpeechRecognition){ alert("Voice not supported"); return; }
-  const rec=new SpeechRecognition(); rec.start();
+  const SpeechRecognition=window.SpeechRecognition||window.webkitSpeechRecognition
+  if(!SpeechRecognition){ alert("Voice not supported"); return }
+  const rec=new SpeechRecognition()
+  rec.lang="en-IN"
+  rec.interimResults=true
+  const popup=document.getElementById("voicePopup")
+  const waves=document.querySelectorAll(".wave")
+  waves.forEach(w=>w.style.display="block")
+  popup.innerText="🎤 Listening..."
+  popup.style.display="block"
   rec.onresult=(e)=>{
-    let text=e.results[0][0].transcript.toLowerCase();
-    document.getElementById("voiceText").style.display="block";
-    document.getElementById("voiceText").innerText=text;
-    aiVoice(text);
+    let text=""; for(let i=0;i<e.results.length;i++){ text=e.results[i][0].transcript }
+    popup.innerText=text
+    voiceCommand(text.toLowerCase())
   }
+  rec.onspeechend=()=>setTimeout(()=>{popup.style.display="none"; waves.forEach(w=>w.style.display="none");},500)
+  rec.onerror=()=>{popup.style.display="none"; waves.forEach(w=>w.style.display="none");}
+  rec.start()
 }
 
-function aiVoice(cmd){
-  cmd=cmd.replace(/\s+/g,' ').trim();
-  let mapping=[
-    {name:"room 1 light",id:0},{name:"room 1 tube",id:1},
-    {name:"room 1 fan",id:2},{name:"room 1 socket",id:3},
-    {name:"room 2 light",id:4},{name:"room 2 bulb",id:5},
-    {name:"room 2 fan",id:6},{name:"room 2 socket",id:7}
-  ];
-  mapping.forEach(m=>{
-    if(cmd.includes(m.name) && cmd.includes("on")) sendRelay(m.id,true);
-    if(cmd.includes(m.name) && cmd.includes("off")) sendRelay(m.id,false);
-  });
-  if(cmd.includes("all on")) relayState.forEach((_,i)=>sendRelay(i,true));
-  if(cmd.includes("all off")) relayState.forEach((_,i)=>sendRelay(i,false));
+function voiceCommand(cmd){
+  const map={"room 1 light":0,"room 1 fan":1,"room 1 tube":2,"room 1 socket":3,"room 2 light":4,"room 2 fan":5,"room 2 bulb":6,"room 2 socket":7}
+  for(let n in map){
+    if(cmd.includes(n)){
+      let id=map[n]
+      if(cmd.includes("on")){ client.publish(topicCmd,id+"1"); speak(n+" turned on") }
+      if(cmd.includes("off")){ client.publish(topicCmd,id+"0"); speak(n+" turned off") }
+      let m=cmd.match(/(\d+)/)
+      if(cmd.includes("timer") && m){ timers[id]=parseInt(m[1])*60; startTimes[id]=Date.now(); localStorage.setItem("dashboardTimers",JSON.stringify(timers)); speak("Timer set for "+n) }
+    }
+  }
+  if(cmd.includes("update")){ requestStatus(); speak("Dashboard updated") }
+  if(cmd.includes("usage")){ for(let i=0;i<8;i++){ if(cmd.includes(deviceNames[i].toLowerCase())){ speak(deviceNames[i]+" usage "+usageData[i]+" minutes") } } }
+  if(cmd.includes("wifi")){ speak("WiFi "+document.getElementById("wifiSSID").innerText+" signal "+document.getElementById("wifiRSSI").innerText) }
+  if(cmd.includes("mqtt")){ speak("MQTT "+document.getElementById("mqttStatus").innerText) }
 }
 
-/* ESP Offline Watchdog */
-setInterval(()=>{
-  if(Date.now()-lastESP>60000){
-    document.getElementById("mqttState").innerText="ESP Offline";
-  }
-},5000);
+// ---------------- MANUAL STATUS ----------------
+function requestStatus(){ client.publish(topicCmd,"status") }
 
+// ---------------- TWEMOJI FIX ----------------
+document.addEventListener("DOMContentLoaded",()=>{ twemoji.parse(document.body,{folder:'svg',ext:'.svg'}) })
 </script>
+
 </body>
-</html>
+  </html>
