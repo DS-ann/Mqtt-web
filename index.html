@@ -3,6 +3,7 @@
 <head>
 
 <meta name="viewport" content="width=device-width, initial-scale=1">
+
 <title>Ranjana Smart Home</title>
 
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600&family=Roboto:wght@400;500&display=swap" rel="stylesheet">
@@ -11,10 +12,12 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://twemoji.maxcdn.com/v/latest/twemoji.min.js"></script>
 
+<!-- PWA Manifest -->
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#22c55e">
 
 <style>
+/* ... All your existing CSS remains unchanged ... */
 body{font-family:'Roboto',sans-serif;background:#0f172a;color:white;margin:0;text-align:center;}
 .header{background:#1e293b;padding:15px;margin:10px;border-radius:12px;}
 .header h2{font-family:'Poppins',sans-serif;}
@@ -67,12 +70,11 @@ Signal: <span id="wifiRSSI">--</span><br>
 <button class="mic" onclick="startVoice()">🎤</button>
 
 <script>
-
-twemoji.parse(document.body)
+// Twemoji parse
+twemoji.parse(document.body);
 
 const broker="wss://5dba91287f8248c1a30195053d3862ed.s1.eu.hivemq.cloud:8884/mqtt"
 const topicCmd="home/esp32/commands"
-
 const client=mqtt.connect(broker,{
 username:"Debarghya_Sannigrahi",
 password:"Dsann#5956"
@@ -81,18 +83,16 @@ password:"Dsann#5956"
 let usageData=new Array(8).fill(0)
 let timers=new Array(8).fill(0)
 let timerTotal=new Array(8).fill(0)
-let startTimes=new Array(8).fill(0)
 
 const deviceNames=["Light","Fan","Tube","Socket","Light","Fan","Bulb","Socket"]
 const icons=["💡","🌀","💡","🔌","💡","🌀","💡","🔌"]
 
 const rooms=document.getElementById("rooms")
 
+// Initialize rooms and devices
 for(let i=0;i<8;i++){
-
 let room=i<4?1:2
 let roomDiv=document.getElementById("room"+room)
-
 if(!roomDiv){
 roomDiv=document.createElement("div")
 roomDiv.className="room"
@@ -100,30 +100,28 @@ roomDiv.id="room"+room
 roomDiv.innerHTML="<h3>Room "+room+"</h3>"
 rooms.appendChild(roomDiv)
 }
-
 let iconClass=(i==1||i==5)?"fan":"light"
-
 roomDiv.innerHTML+=`
 <div class="device">
 <div class="icon ${iconClass}">${icons[i]}</div>
 <div>${deviceNames[i]}</div>
-<div class="timerCircle" id="circle${i}">
-<span id="timer${i}"></span>
-</div>
-<label class="toggle">
-<input type="checkbox" data-id="${i}">
-<span class="slider"></span>
-</label>
+<div class="timerCircle" id="circle${i}"><span id="timer${i}"></span></div>
+<label class="toggle"><input type="checkbox" data-id="${i}"><span class="slider"></span></label>
 <button class="iconBtn" onclick="setTimer(${i})">⏱</button>
 <button class="iconBtn" onclick="showUsage(${i})">📊</button>
-</div>
-`
+</div>`
+}
+
+// Load timers from localStorage
+for(let i=0;i<8;i++){
+  let t = localStorage.getItem("timer"+i);
+  if(t) timers[i]=parseInt(t);
+  let total = localStorage.getItem("timerTotal"+i);
+  if(total) timerTotal[i]=parseInt(total);
 }
 
 document.querySelectorAll("input").forEach(el=>{
-el.onchange=()=>{
-client.publish(topicCmd,el.dataset.id+(el.checked?"1":"0"))
-}
+el.onchange=()=>{ client.publish(topicCmd,el.dataset.id+(el.checked?"1":"0")) }
 })
 
 client.on("connect",()=>{
@@ -132,152 +130,137 @@ client.subscribe("home/esp32/update")
 client.subscribe("home/esp32/wifi_status")
 })
 
-function setTimer(id){
+client.on("message",(topic,msg)=>{ parseData(msg.toString()) })
 
-let m=prompt("Timer minutes")
-if(!m)return
-
-m=parseInt(m)
-if(isNaN(m))return
-
+function parseData(msg){
+if(msg.startsWith("S")){
+let p=msg.split(",")
+document.getElementById("wifiSSID").innerText=p[0].substring(1)
+document.getElementById("wifiRSSI").innerText=p[1].substring(1)+" dBm"
+return
+}
+let offset=msg.startsWith("a:")?0:4
+let parts=msg.split(",")
+let r=parts[0].substring(3)
+for(let i=0;i<4;i++){
+let id=offset+i
+let sw=document.querySelector('input[data-id="'+id+'"]')
+if(sw){
+let state=r[i]=="1"
+sw.checked=state
+let dev=sw.closest(".device")
+if(state) dev.classList.add("on")
+else dev.classList.remove("on")
+}
+}
+for(let i=0;i<4;i++){
+let id=offset+i
+let m=parseInt(parts[i+1].replace("T",""))||0
 timers[id]=m*60
 timerTotal[id]=m*60
-startTimes[id]=Date.now()
+localStorage.setItem("timer"+id,timers[id]);
+localStorage.setItem("timerTotal"+id,timerTotal[id]);
+}
+for(let i=0;i<4;i++){
+let id=offset+i
+usageData[id]=parseInt(parts[i+5].replace("U",""))||0
+}
+updateGraph()
+}
 
+function showUsage(id){ alert(deviceNames[id]+" Usage: "+usageData[id]+" minutes") }
+
+function setTimer(id){
+let m=prompt("Timer minutes"); if(!m) return
+timers[id]=parseInt(m)*60
+timerTotal[id]=timers[id]
+localStorage.setItem("timer"+id,timers[id]);
+localStorage.setItem("timerTotal"+id,timerTotal[id]);
 client.publish(topicCmd,"T"+id+m)
-
 }
 
 setInterval(()=>{
-
 for(let i=0;i<8;i++){
-
-if(timerTotal[i]>0){
-
-let elapsed=Math.floor((Date.now()-startTimes[i])/1000)
-let remaining=Math.max(timerTotal[i]-elapsed,0)
-
-let m=Math.floor(remaining/60)
-let s=remaining%60
-if(s<10)s="0"+s
-
+if(timers[i]>0){
+timers[i]--
+localStorage.setItem("timer"+i,timers[i])
+let m=Math.floor(timers[i]/60),s=timers[i]%60
+if(s<10) s="0"+s
 document.getElementById("timer"+i).innerText=m+":"+s
-
-let progress=(remaining/timerTotal[i])*360
+let progress=(timers[i]/timerTotal[i])*360
 document.getElementById("circle"+i).style.background="conic-gradient(#22c55e "+progress+"deg,#1e293b 0deg)"
-
+}else{
+document.getElementById("timer"+i).innerText=""
+document.getElementById("circle"+i).style.background="conic-gradient(#22c55e 0deg,#1e293b 0deg)"
+localStorage.removeItem("timer"+i)
+localStorage.removeItem("timerTotal"+i)
 }
-
 }
-
 },1000)
 
-function showUsage(id){
-alert(deviceNames[id]+" Usage: "+usageData[id]+" minutes")
-}
-
-function requestFullStatus(){
-client.publish(topicCmd,"status")
-}
-
-function speak(t){
-let u=new SpeechSynthesisUtterance(t)
-speechSynthesis.speak(u)
-}
-
-function startVoice(){
-
-const SpeechRecognition=window.SpeechRecognition||window.webkitSpeechRecognition
-
-if(!SpeechRecognition){
-alert("Voice not supported")
-return
-}
-
-const rec=new SpeechRecognition()
-rec.lang="en-IN"
-rec.interimResults=true
-
-const popup=document.getElementById("voicePopup")
-const waves=document.querySelectorAll(".wave")
-
-waves.forEach(w=>w.style.display="block")
-popup.innerText="🎤 Listening..."
-popup.style.display="block"
-
-rec.onresult=(e)=>{
-let text=""
-for(let i=0;i<e.results.length;i++){
-text=e.results[i][0].transcript
-}
-popup.innerText=text
-voiceCommand(text.toLowerCase())
-}
-
-rec.onspeechend=()=>{
-setTimeout(()=>{
-popup.style.display="none"
-waves.forEach(w=>w.style.display="none")
-},500)
-}
-
-rec.onerror=()=>{
-popup.style.display="none"
-waves.forEach(w=>w.style.display="none")
-}
-
-rec.start()
-
-}
-
-function voiceCommand(cmd){
-
-const map={
-"room 1 light":0,
-"room 1 fan":1,
-"room 1 tube":2,
-"room 1 socket":3,
-"room 2 light":4,
-"room 2 fan":5,
-"room 2 bulb":6,
-"room 2 socket":7
-}
-
-for(let n in map){
-
-if(cmd.includes(n)){
-
-let id=map[n]
-
-if(cmd.includes("on")){
-client.publish(topicCmd,id+"1")
-speak(n+" turned on")
-}
-
-if(cmd.includes("off")){
-client.publish(topicCmd,id+"0")
-speak(n+" turned off")
-}
-
-}
-
-}
-
-}
-
+// HiFi Graph
 const chart=new Chart(document.getElementById("usageChart"),{
 type:"bar",
 data:{
 labels:deviceNames,
 datasets:[
-{label:"Room 1",data:usageData.slice(0,4),backgroundColor:"#3b82f6"},
-{label:"Room 2",data:usageData.slice(4,8),backgroundColor:"#22c55e"}
+{label:"Room 1",data:usageData.slice(0,4).map(v=>v/60),backgroundColor:"#3b82f6"},
+{label:"Room 2",data:usageData.slice(4,8).map(v=>v/60),backgroundColor:"#22c55e"}
 ]
 },
-options:{responsive:true}
+options:{
+responsive:true,
+plugins:{legend:{position:'top'}},
+scales:{
+y:{beginAtZero:true,title:{display:true,text:"Minutes"}}
+}
+}
 })
 
-</script>
+function updateGraph(){
+chart.data.datasets[0].data=usageData.slice(0,4).map(v=>v/60)
+chart.data.datasets[1].data=usageData.slice(4,8).map(v=>v/60)
+chart.update()
+}
 
+// Voice
+function speak(t){let u=new SpeechSynthesisUtterance(t);speechSynthesis.speak(u)}
+function startVoice(){
+const SpeechRecognition=window.SpeechRecognition||window.webkitSpeechRecognition
+if(!SpeechRecognition){ alert("Voice not supported"); return }
+const rec=new SpeechRecognition(); rec.lang="en-IN"; rec.interimResults=true
+const popup=document.getElementById("voicePopup"); const waves=document.querySelectorAll(".wave")
+waves.forEach(w=>w.style.display="block"); popup.innerText="🎤 Listening..."; popup.style.display="block"
+rec.onresult=(e)=>{
+let text=""; for(let i=0;i<e.results.length;i++){text=e.results[i][0].transcript}
+popup.innerText=text; voiceCommand(text.toLowerCase())
+}
+rec.onspeechend=()=>setTimeout(()=>{popup.style.display="none"; waves.forEach(w=>w.style.display="none");},500)
+rec.onerror=()=>{popup.style.display="none"; waves.forEach(w=>w.style.display="none");}
+rec.start()
+}
+function voiceCommand(cmd){
+const map={"room 1 light":0,"room 1 fan":1,"room 1 tube":2,"room 1 socket":3,
+"room 2 light":4,"room 2 fan":5,"room 2 bulb":6,"room 2 socket":7}
+for(let n in map){
+if(cmd.includes(n)){
+let id=map[n]
+if(cmd.includes("on")){ client.publish(topicCmd,id+"1"); speak(n+" turned on") }
+if(cmd.includes("off")){ client.publish(topicCmd,id+"0"); speak(n+" turned off") }
+let m=cmd.match(/(\d+)/)
+if(cmd.includes("timer") && m){ client.publish(topicCmd,"T"+id+m[1]); speak("Timer set for "+n) }
+}
+}
+}
+
+// Request full status
+function requestFullStatus(){ client.publish(topicCmd,"status"); speak("Requesting full status") }
+
+// Register Service Worker
+if ("serviceWorker" in navigator){
+navigator.serviceWorker.register("./sw.js").then(()=>console.log("Service Worker registered"))
+.catch(err=>console.log("SW failed",err))
+}
+</script>
 </body>
         </html>
