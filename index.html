@@ -10,8 +10,6 @@
 
 <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
-<!-- Universal Emoji -->
 <script src="https://twemoji.maxcdn.com/v/latest/twemoji.min.js"></script>
 
 <style>
@@ -39,9 +37,9 @@ font-family:'Poppins',sans-serif;
 background:none;
 border:none;
 color:#22c55e;
-font-size:16px;
+font-size:18px;
 cursor:pointer;
-margin-left:5px;
+margin-left:6px;
 }
 
 .room{
@@ -197,6 +195,12 @@ display:none;
 100%{transform:scale(2.5);opacity:0}
 }
 
+img.emoji{
+height:20px;
+width:20px;
+vertical-align:middle;
+}
+
 </style>
 
 </head>
@@ -231,11 +235,9 @@ Signal: <span id="wifiRSSI">--</span>
 
 <script>
 
-/* Universal emoji rendering */
 twemoji.parse(document.body)
 
 const broker="wss://5dba91287f8248c1a30195053d3862ed.s1.eu.hivemq.cloud:8884/mqtt"
-
 const topicCmd="home/esp32/commands"
 
 const client=mqtt.connect(broker,{
@@ -247,29 +249,203 @@ let usageData=new Array(8).fill(0)
 let timers=new Array(8).fill(0)
 let timerTotal=new Array(8).fill(0)
 
+const deviceNames=[
+"Light","Fan","Tube","Socket",
+"Light","Fan","Bulb","Socket"
+]
+
+const icons=["💡","🌀","💡","🔌","💡","🌀","💡","🔌"]
+
+const rooms=document.getElementById("rooms")
+
+for(let i=0;i<8;i++){
+
+let room=i<4?1:2
+let roomDiv=document.getElementById("room"+room)
+
+if(!roomDiv){
+roomDiv=document.createElement("div")
+roomDiv.className="room"
+roomDiv.id="room"+room
+roomDiv.innerHTML="<h3>Room "+room+"</h3>"
+rooms.appendChild(roomDiv)
+}
+
+let iconClass=(i==1||i==5)?"fan":"light"
+
+roomDiv.innerHTML+=`
+
+<div class="device">
+
+<div class="icon ${iconClass}">${icons[i]}</div>
+
+<div>${deviceNames[i]}</div>
+
+<div class="timerCircle" id="circle${i}">
+<span id="timer${i}"></span>
+</div>
+
+<label class="toggle">
+<input type="checkbox" data-id="${i}">
+<span class="slider"></span>
+</label>
+
+<button class="iconBtn" onclick="setTimer(${i})">⏱</button>
+<button class="iconBtn" onclick="showUsage(${i})">📊</button>
+
+</div>
+
+`
+}
+
+document.querySelectorAll("input").forEach(el=>{
+el.onchange=()=>{
+client.publish(topicCmd,el.dataset.id+(el.checked?"1":"0"))
+}
+})
+
+client.on("connect",()=>{
+document.getElementById("mqttStatus").innerText="Connected"
+client.subscribe("home/esp32/update")
+client.subscribe("home/esp32/wifi_status")
+})
+
+client.on("message",(topic,msg)=>{
+parseData(msg.toString())
+})
+
 function requestStatus(){
 client.publish(topicCmd,"status")
 }
 
-/* Voice Engine Upgrade */
+function parseData(msg){
 
-let recognition
-
-function startVoice(){
-
-const SpeechRecognition=
-window.SpeechRecognition||window.webkitSpeechRecognition
-
-if(!SpeechRecognition){
-alert("Voice recognition not supported")
+if(msg.startsWith("S")){
+let p=msg.split(",")
+document.getElementById("wifiSSID").innerText=p[0].substring(1)
+document.getElementById("wifiRSSI").innerText=p[1].substring(1)+" dBm"
 return
 }
 
-recognition=new SpeechRecognition()
+let offset=msg.startsWith("a:")?0:4
+let parts=msg.split(",")
 
-recognition.lang="en-IN"
-recognition.continuous=true
-recognition.interimResults=true
+let r=parts[0].substring(3)
+
+for(let i=0;i<4;i++){
+
+let id=offset+i
+let sw=document.querySelector('input[data-id="'+id+'"]')
+
+if(sw){
+
+let state=r[i]=="1"
+sw.checked=state
+
+let dev=sw.closest(".device")
+
+if(state) dev.classList.add("on")
+else dev.classList.remove("on")
+
+}
+
+}
+
+for(let i=0;i<4;i++){
+
+let id=offset+i
+let m=parseInt(parts[i+1].replace("T",""))||0
+
+if(m>0 && timers[id]===0){
+timers[id]=m*60
+timerTotal[id]=m*60
+}
+
+if(m===0){
+timers[id]=0
+timerTotal[id]=0
+}
+
+}
+
+for(let i=0;i<4;i++){
+let id=offset+i
+usageData[id]=parseInt(parts[i+5].replace("U",""))||0
+}
+
+updateGraph()
+
+}
+
+function showUsage(id){
+alert(deviceNames[id]+" Usage: "+usageData[id]+" minutes")
+}
+
+function setTimer(id){
+let m=prompt("Timer minutes")
+if(!m) return
+client.publish(topicCmd,"T"+id+m)
+}
+
+setInterval(()=>{
+
+for(let i=0;i<8;i++){
+
+if(timers[i]>0){
+
+timers[i]--
+
+let m=Math.floor(timers[i]/60)
+let s=timers[i]%60
+
+if(s<10)s="0"+s
+
+document.getElementById("timer"+i).innerText=m+":"+s
+
+if(timerTotal[i]>0){
+
+let progress=(timers[i]/timerTotal[i])*360
+
+document.getElementById("circle"+i).style.background=
+"conic-gradient(#22c55e "+progress+"deg,#1e293b 0deg)"
+
+}
+
+}
+
+}
+
+},1000)
+
+const chart=new Chart(document.getElementById("usageChart"),{
+type:"bar",
+data:{
+labels:["Light","Fan","Tube/Bulb","Socket"],
+datasets:[
+{label:"Room 1",data:[0,0,0,0]},
+{label:"Room 2",data:[0,0,0,0]}
+]
+}
+})
+
+function updateGraph(){
+
+chart.data.datasets[0].data=usageData.slice(0,4).map(v=>v/60)
+chart.data.datasets[1].data=usageData.slice(4,8).map(v=>v/60)
+
+chart.update()
+
+}
+
+function speak(t){
+let u=new SpeechSynthesisUtterance(t)
+speechSynthesis.speak(u)
+}
+
+function startVoice(){
+
+const SpeechRecognition=window.SpeechRecognition||window.webkitSpeechRecognition
+const rec=new SpeechRecognition()
 
 let popup=document.getElementById("voicePopup")
 let waves=document.querySelectorAll(".wave")
@@ -279,42 +455,67 @@ waves.forEach(w=>w.style.display="block")
 popup.innerText="🎤 Listening..."
 popup.style.display="block"
 
-recognition.start()
+rec.start()
 
-recognition.onresult=(e)=>{
+rec.onresult=(e)=>{
 
-let text=""
-
-for(let i=0;i<e.results.length;i++){
-text=e.results[i][0].transcript
-}
+let text=e.results[0][0].transcript.toLowerCase()
 
 popup.innerText=text
 
-voiceCommand(text.toLowerCase())
+voiceCommand(text)
 
-}
+setTimeout(()=>popup.style.display="none",2000)
 
-recognition.onend=()=>{
-popup.style.display="none"
 waves.forEach(w=>w.style.display="none")
+
+}
+
+}
+
+function voiceCommand(cmd){
+
+const map={
+"room 1 light":0,
+"room 1 fan":1,
+"room 1 tube":2,
+"room 1 socket":3,
+"room 2 light":4,
+"room 2 fan":5,
+"room 2 bulb":6,
+"room 2 socket":7
+}
+
+for(let n in map){
+
+if(cmd.includes(n)){
+
+let id=map[n]
+
+if(cmd.includes("on")){
+client.publish(topicCmd,id+"1")
+speak(n+" turned on")
+}
+
+if(cmd.includes("off")){
+client.publish(topicCmd,id+"0")
+speak(n+" turned off")
+}
+
+let m=cmd.match(/(\d+)/)
+
+if(cmd.includes("timer") && m){
+client.publish(topicCmd,"T"+id+m[1])
+speak("Timer set for "+n)
 }
 
 }
 
-function speak(t){
-
-let u=new SpeechSynthesisUtterance(t)
-
-u.rate=1
-u.pitch=1.1
-u.lang="en-IN"
-
-speechSynthesis.speak(u)
+}
 
 }
 
 </script>
 
 </body>
-  </html>
+</html>
