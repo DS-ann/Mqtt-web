@@ -10,50 +10,210 @@
 
 <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<!-- Universal Emoji -->
 <script src="https://twemoji.maxcdn.com/v/latest/twemoji.min.js"></script>
 
-<!-- PWA Manifest -->
-<link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#22c55e">
-
 <style>
-/* ... All your existing CSS remains unchanged ... */
-body{font-family:'Roboto',sans-serif;background:#0f172a;color:white;margin:0;text-align:center;}
-.header{background:#1e293b;padding:15px;margin:10px;border-radius:12px;}
-.header h2{font-family:'Poppins',sans-serif;}
-.room{background:#1e293b;margin:15px;padding:15px;border-radius:12px;}
-.device{display:flex;align-items:center;justify-content:space-between;background:#334155;padding:10px;margin:8px 0;border-radius:10px;transition:0.3s;}
-.device.on{background:#1e3a2f;box-shadow:0 0 10px #22c55e;}
-.icon{font-size:22px;width:30px;}
-.device.on .fan{animation:spin 1s linear infinite;}
-.device.on .light{animation:glow 1.5s infinite alternate;}
-@keyframes spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}
-@keyframes glow{from{text-shadow:0 0 5px #fff}to{text-shadow:0 0 20px yellow}}
-.toggle{position:relative;width:50px;height:26px;}
+
+body{
+font-family:'Roboto',sans-serif;
+background:#0f172a;
+color:white;
+margin:0;
+text-align:center;
+}
+
+.header{
+background:#1e293b;
+padding:15px;
+margin:10px;
+border-radius:12px;
+}
+
+.header h2{
+font-family:'Poppins',sans-serif;
+}
+
+.updateBtn{
+background:none;
+border:none;
+color:#22c55e;
+font-size:16px;
+cursor:pointer;
+margin-left:5px;
+}
+
+.room{
+background:#1e293b;
+margin:15px;
+padding:15px;
+border-radius:12px;
+}
+
+.device{
+display:flex;
+align-items:center;
+justify-content:space-between;
+background:#334155;
+padding:10px;
+margin:8px 0;
+border-radius:10px;
+transition:0.3s;
+}
+
+.device.on{
+background:#1e3a2f;
+box-shadow:0 0 10px #22c55e;
+}
+
+.icon{
+font-size:22px;
+width:30px;
+}
+
+.device.on .fan{
+animation:spin 1s linear infinite;
+}
+
+.device.on .light{
+animation:glow 1.5s infinite alternate;
+}
+
+@keyframes spin{
+from{transform:rotate(0)}
+to{transform:rotate(360deg)}
+}
+
+@keyframes glow{
+from{text-shadow:0 0 5px #fff}
+to{text-shadow:0 0 20px yellow}
+}
+
+.toggle{
+position:relative;
+width:50px;
+height:26px;
+}
+
 .toggle input{display:none;}
-.slider{position:absolute;cursor:pointer;background:#64748b;border-radius:34px;top:0;left:0;right:0;bottom:0;}
-.slider:before{position:absolute;content:"";height:20px;width:20px;left:3px;bottom:3px;background:white;border-radius:50%;transition:0.3s;}
-input:checked + .slider{background:#22c55e;}
-input:checked + .slider:before{transform:translateX(24px);}
-.timerCircle{width:42px;height:42px;border-radius:50%;background:conic-gradient(#22c55e 0deg,#1e293b 0deg);display:flex;align-items:center;justify-content:center;font-size:10px;}
-.iconBtn{background:none;border:none;font-size:18px;color:white;cursor:pointer;}
-#voicePopup{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#1e293b;padding:20px 30px;border-radius:12px;font-size:20px;display:none;z-index:1000;font-family:Poppins;}
-.mic{position:fixed;bottom:30px;right:30px;width:60px;height:60px;border-radius:50%;background:#22c55e;font-size:28px;border:none;color:white;cursor:pointer;}
-.wave{position:fixed;bottom:30px;right:30px;width:60px;height:60px;border-radius:50%;background:#22c55e;opacity:0.3;animation:wave 2s infinite;display:none;}
+
+.slider{
+position:absolute;
+cursor:pointer;
+background:#64748b;
+border-radius:34px;
+top:0;
+left:0;
+right:0;
+bottom:0;
+}
+
+.slider:before{
+position:absolute;
+content:"";
+height:20px;
+width:20px;
+left:3px;
+bottom:3px;
+background:white;
+border-radius:50%;
+transition:0.3s;
+}
+
+input:checked + .slider{
+background:#22c55e;
+}
+
+input:checked + .slider:before{
+transform:translateX(24px);
+}
+
+.timerCircle{
+width:42px;
+height:42px;
+border-radius:50%;
+background:conic-gradient(#22c55e 0deg,#1e293b 0deg);
+display:flex;
+align-items:center;
+justify-content:center;
+font-size:10px;
+}
+
+.iconBtn{
+background:none;
+border:none;
+font-size:18px;
+color:white;
+cursor:pointer;
+}
+
+#voicePopup{
+position:fixed;
+top:50%;
+left:50%;
+transform:translate(-50%,-50%);
+background:#1e293b;
+padding:20px 30px;
+border-radius:12px;
+font-size:20px;
+display:none;
+z-index:1000;
+font-family:Poppins;
+}
+
+.mic{
+position:fixed;
+bottom:30px;
+right:30px;
+width:60px;
+height:60px;
+border-radius:50%;
+background:#22c55e;
+font-size:28px;
+border:none;
+color:white;
+cursor:pointer;
+}
+
+.wave{
+position:fixed;
+bottom:30px;
+right:30px;
+width:60px;
+height:60px;
+border-radius:50%;
+background:#22c55e;
+opacity:0.3;
+animation:wave 2s infinite;
+display:none;
+}
+
 .wave:nth-child(2){animation-delay:0.5s}
 .wave:nth-child(3){animation-delay:1s}
-@keyframes wave{0%{transform:scale(1);opacity:0.5}100%{transform:scale(2.5);opacity:0}}
+
+@keyframes wave{
+0%{transform:scale(1);opacity:0.5}
+100%{transform:scale(2.5);opacity:0}
+}
+
 </style>
 
 </head>
+
 <body>
 
 <div class="header">
+
 <h2>🏠 Ranjana Smart Home</h2>
+
 MQTT: <span id="mqttStatus">Connecting...</span><br>
-WiFi: <span id="wifiSSID">--</span><br>
-Signal: <span id="wifiRSSI">--</span><br>
-<button class="iconBtn" onclick="requestFullStatus()">🔄 Update Status</button>
+
+WiFi: <span id="wifiSSID">--</span>
+Signal: <span id="wifiRSSI">--</span>
+
+<button class="updateBtn" onclick="requestStatus()">🔄</button>
+
 </div>
 
 <div id="rooms"></div>
@@ -70,11 +230,14 @@ Signal: <span id="wifiRSSI">--</span><br>
 <button class="mic" onclick="startVoice()">🎤</button>
 
 <script>
-// Twemoji parse
-twemoji.parse(document.body);
+
+/* Universal emoji rendering */
+twemoji.parse(document.body)
 
 const broker="wss://5dba91287f8248c1a30195053d3862ed.s1.eu.hivemq.cloud:8884/mqtt"
+
 const topicCmd="home/esp32/commands"
+
 const client=mqtt.connect(broker,{
 username:"Debarghya_Sannigrahi",
 password:"Dsann#5956"
@@ -84,183 +247,74 @@ let usageData=new Array(8).fill(0)
 let timers=new Array(8).fill(0)
 let timerTotal=new Array(8).fill(0)
 
-const deviceNames=["Light","Fan","Tube","Socket","Light","Fan","Bulb","Socket"]
-const icons=["💡","🌀","💡","🔌","💡","🌀","💡","🔌"]
-
-const rooms=document.getElementById("rooms")
-
-// Initialize rooms and devices
-for(let i=0;i<8;i++){
-let room=i<4?1:2
-let roomDiv=document.getElementById("room"+room)
-if(!roomDiv){
-roomDiv=document.createElement("div")
-roomDiv.className="room"
-roomDiv.id="room"+room
-roomDiv.innerHTML="<h3>Room "+room+"</h3>"
-rooms.appendChild(roomDiv)
-}
-let iconClass=(i==1||i==5)?"fan":"light"
-roomDiv.innerHTML+=`
-<div class="device">
-<div class="icon ${iconClass}">${icons[i]}</div>
-<div>${deviceNames[i]}</div>
-<div class="timerCircle" id="circle${i}"><span id="timer${i}"></span></div>
-<label class="toggle"><input type="checkbox" data-id="${i}"><span class="slider"></span></label>
-<button class="iconBtn" onclick="setTimer(${i})">⏱</button>
-<button class="iconBtn" onclick="showUsage(${i})">📊</button>
-</div>`
+function requestStatus(){
+client.publish(topicCmd,"status")
 }
 
-// Load timers from localStorage
-for(let i=0;i<8;i++){
-  let t = localStorage.getItem("timer"+i);
-  if(t) timers[i]=parseInt(t);
-  let total = localStorage.getItem("timerTotal"+i);
-  if(total) timerTotal[i]=parseInt(total);
-}
+/* Voice Engine Upgrade */
 
-document.querySelectorAll("input").forEach(el=>{
-el.onchange=()=>{ client.publish(topicCmd,el.dataset.id+(el.checked?"1":"0")) }
-})
+let recognition
 
-client.on("connect",()=>{
-document.getElementById("mqttStatus").innerText="Connected"
-client.subscribe("home/esp32/update")
-client.subscribe("home/esp32/wifi_status")
-})
+function startVoice(){
 
-client.on("message",(topic,msg)=>{ parseData(msg.toString()) })
+const SpeechRecognition=
+window.SpeechRecognition||window.webkitSpeechRecognition
 
-function parseData(msg){
-if(msg.startsWith("S")){
-let p=msg.split(",")
-document.getElementById("wifiSSID").innerText=p[0].substring(1)
-document.getElementById("wifiRSSI").innerText=p[1].substring(1)+" dBm"
+if(!SpeechRecognition){
+alert("Voice recognition not supported")
 return
 }
-let offset=msg.startsWith("a:")?0:4
-let parts=msg.split(",")
-let r=parts[0].substring(3)
-for(let i=0;i<4;i++){
-let id=offset+i
-let sw=document.querySelector('input[data-id="'+id+'"]')
-if(sw){
-let state=r[i]=="1"
-sw.checked=state
-let dev=sw.closest(".device")
-if(state) dev.classList.add("on")
-else dev.classList.remove("on")
-}
-}
-for(let i=0;i<4;i++){
-let id=offset+i
-let m=parseInt(parts[i+1].replace("T",""))||0
-timers[id]=m*60
-timerTotal[id]=m*60
-localStorage.setItem("timer"+id,timers[id]);
-localStorage.setItem("timerTotal"+id,timerTotal[id]);
-}
-for(let i=0;i<4;i++){
-let id=offset+i
-usageData[id]=parseInt(parts[i+5].replace("U",""))||0
-}
-updateGraph()
+
+recognition=new SpeechRecognition()
+
+recognition.lang="en-IN"
+recognition.continuous=true
+recognition.interimResults=true
+
+let popup=document.getElementById("voicePopup")
+let waves=document.querySelectorAll(".wave")
+
+waves.forEach(w=>w.style.display="block")
+
+popup.innerText="🎤 Listening..."
+popup.style.display="block"
+
+recognition.start()
+
+recognition.onresult=(e)=>{
+
+let text=""
+
+for(let i=0;i<e.results.length;i++){
+text=e.results[i][0].transcript
 }
 
-function showUsage(id){ alert(deviceNames[id]+" Usage: "+usageData[id]+" minutes") }
+popup.innerText=text
 
-function setTimer(id){
-let m=prompt("Timer minutes"); if(!m) return
-timers[id]=parseInt(m)*60
-timerTotal[id]=timers[id]
-localStorage.setItem("timer"+id,timers[id]);
-localStorage.setItem("timerTotal"+id,timerTotal[id]);
-client.publish(topicCmd,"T"+id+m)
+voiceCommand(text.toLowerCase())
+
 }
 
-setInterval(()=>{
-for(let i=0;i<8;i++){
-if(timers[i]>0){
-timers[i]--
-localStorage.setItem("timer"+i,timers[i])
-let m=Math.floor(timers[i]/60),s=timers[i]%60
-if(s<10) s="0"+s
-document.getElementById("timer"+i).innerText=m+":"+s
-let progress=(timers[i]/timerTotal[i])*360
-document.getElementById("circle"+i).style.background="conic-gradient(#22c55e "+progress+"deg,#1e293b 0deg)"
-}else{
-document.getElementById("timer"+i).innerText=""
-document.getElementById("circle"+i).style.background="conic-gradient(#22c55e 0deg,#1e293b 0deg)"
-localStorage.removeItem("timer"+i)
-localStorage.removeItem("timerTotal"+i)
-}
-}
-},1000)
-
-// HiFi Graph
-const chart=new Chart(document.getElementById("usageChart"),{
-type:"bar",
-data:{
-labels:deviceNames,
-datasets:[
-{label:"Room 1",data:usageData.slice(0,4).map(v=>v/60),backgroundColor:"#3b82f6"},
-{label:"Room 2",data:usageData.slice(4,8).map(v=>v/60),backgroundColor:"#22c55e"}
-]
-},
-options:{
-responsive:true,
-plugins:{legend:{position:'top'}},
-scales:{
-y:{beginAtZero:true,title:{display:true,text:"Minutes"}}
-}
-}
-})
-
-function updateGraph(){
-chart.data.datasets[0].data=usageData.slice(0,4).map(v=>v/60)
-chart.data.datasets[1].data=usageData.slice(4,8).map(v=>v/60)
-chart.update()
+recognition.onend=()=>{
+popup.style.display="none"
+waves.forEach(w=>w.style.display="none")
 }
 
-// Voice
-function speak(t){let u=new SpeechSynthesisUtterance(t);speechSynthesis.speak(u)}
-function startVoice(){
-const SpeechRecognition=window.SpeechRecognition||window.webkitSpeechRecognition
-if(!SpeechRecognition){ alert("Voice not supported"); return }
-const rec=new SpeechRecognition(); rec.lang="en-IN"; rec.interimResults=true
-const popup=document.getElementById("voicePopup"); const waves=document.querySelectorAll(".wave")
-waves.forEach(w=>w.style.display="block"); popup.innerText="🎤 Listening..."; popup.style.display="block"
-rec.onresult=(e)=>{
-let text=""; for(let i=0;i<e.results.length;i++){text=e.results[i][0].transcript}
-popup.innerText=text; voiceCommand(text.toLowerCase())
-}
-rec.onspeechend=()=>setTimeout(()=>{popup.style.display="none"; waves.forEach(w=>w.style.display="none");},500)
-rec.onerror=()=>{popup.style.display="none"; waves.forEach(w=>w.style.display="none");}
-rec.start()
-}
-function voiceCommand(cmd){
-const map={"room 1 light":0,"room 1 fan":1,"room 1 tube":2,"room 1 socket":3,
-"room 2 light":4,"room 2 fan":5,"room 2 bulb":6,"room 2 socket":7}
-for(let n in map){
-if(cmd.includes(n)){
-let id=map[n]
-if(cmd.includes("on")){ client.publish(topicCmd,id+"1"); speak(n+" turned on") }
-if(cmd.includes("off")){ client.publish(topicCmd,id+"0"); speak(n+" turned off") }
-let m=cmd.match(/(\d+)/)
-if(cmd.includes("timer") && m){ client.publish(topicCmd,"T"+id+m[1]); speak("Timer set for "+n) }
-}
-}
 }
 
-// Request full status
-function requestFullStatus(){ client.publish(topicCmd,"status"); speak("Requesting full status") }
+function speak(t){
 
-// Register Service Worker
-if ("serviceWorker" in navigator){
-navigator.serviceWorker.register("./sw.js").then(()=>console.log("Service Worker registered"))
-.catch(err=>console.log("SW failed",err))
+let u=new SpeechSynthesisUtterance(t)
+
+u.rate=1
+u.pitch=1.1
+u.lang="en-IN"
+
+speechSynthesis.speak(u)
+
 }
+
 </script>
+
 </body>
-        </html>
+  </html>
