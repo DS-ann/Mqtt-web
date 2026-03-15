@@ -2,20 +2,30 @@
 <html>
 <head>
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Ranjana Smart Home</title>
-<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600&family=Roboto:wght@400;500&display=swap" rel="stylesheet">
+<title>Ranjana's Smart Home</title>
+
+<!-- Google Fonts -->
+<link href="https://fonts.googleapis.com/css2?family=Google+Sans+Code&display=swap" rel="stylesheet">
 <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://twemoji.maxcdn.com/v/latest/twemoji.min.js"></script>
+
 <style>
 body{font-family:'Roboto',sans-serif;background:#0f172a;color:white;margin:0;text-align:center;}
 .header{background:#1e293b;padding:15px;margin:10px;border-radius:12px;}
-.header h2{font-family:'Poppins',sans-serif;}
+.header h2{
+    font-family: 'Google Sans Code', sans-serif;
+    font-size: 36px;
+    font-weight: 600;
+    color: #22c55e;
+    text-shadow: 0 0 10px #1e293b;
+}
 .updateBtn{background:none;border:none;color:#22c55e;font-size:18px;cursor:pointer;margin-left:6px;}
 .room{background:#1e293b;margin:15px;padding:15px;border-radius:12px;}
 .device{display:flex;align-items:center;justify-content:space-between;background:#334155;padding:10px;margin:8px 0;border-radius:10px;transition:0.3s;}
 .device.on{background:#1e3a2f;box-shadow:0 0 10px #22c55e;}
 .icon{font-size:22px;width:30px;}
+.deviceName { flex: 1; text-align: left; font-size: 16px; padding-left: 8px; }
 .device.on .fan{animation:spin 1s linear infinite;}
 .device.on .light{animation:glow 1.5s infinite alternate;}
 @keyframes spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}
@@ -37,9 +47,10 @@ input:checked + .slider:before{transform:translateX(24px);}
 img.emoji{height:20px;width:20px;vertical-align:middle;}
 </style>
 </head>
+
 <body>
 <div class="header">
-<h2>🏠 Ranjana Smart Home</h2>
+<h2>Ranjana's Smart Home</h2>
 MQTT: <span id="mqttStatus">Connecting...</span><br>
 WiFi: <span id="wifiSSID">--</span> Signal: <span id="wifiRSSI">--</span>
 <button class="updateBtn" onclick="requestStatus()">🔄</button>
@@ -62,26 +73,38 @@ const client=mqtt.connect(broker,{username:"Debarghya_Sannigrahi",password:"Dsan
 let usageData=new Array(8).fill(0)
 let timers=new Array(8).fill(0)
 let timerTotal=new Array(8).fill(0)
-let lastRoom=null, lastDeviceType=null
-
 const deviceNames=["Light","Fan","Tube","Socket","Light","Fan","Bulb","Socket"]
 const icons=["💡","🌀","💡","🔌","💡","🌀","💡","🔌"]
 const roomsDiv=document.getElementById("rooms")
 
-for(let i=0;i<8;i++){
-let room=i<4?1:2
-let roomDiv=document.getElementById("room"+room)
-if(!roomDiv){ roomDiv=document.createElement("div"); roomDiv.className="room"; roomDiv.id="room"+room; roomDiv.innerHTML="<h3>Room "+room+"</h3>"; roomsDiv.appendChild(roomDiv); }
-let iconClass=(i==1||i==5)?"fan":"light"
-roomDiv.innerHTML+=`
-<div class="device">
-<div class="icon ${iconClass}">${icons[i]}</div>
-<div>${deviceNames[i]}</div>
-<div class="timerCircle" id="circle${i}"><span id="timer${i}"></span></div>
-<label class="toggle"><input type="checkbox" data-id="${i}"><span class="slider"></span></label>
-<button class="iconBtn" onclick="setTimer(${i})">⏱</button>
-<button class="iconBtn" onclick="showUsage(${i})">📊</button>
-</div>`
+// === CREATE DEVICES WITH NAMES FIX ===
+for (let i = 0; i < 8; i++) {
+  let room = i < 4 ? 1 : 2;
+  let roomDiv = document.getElementById("room" + room);
+  if (!roomDiv) {
+    roomDiv = document.createElement("div");
+    roomDiv.className = "room";
+    roomDiv.id = "room" + room;
+    roomDiv.innerHTML = `<h3>Room ${room}</h3>`;
+    roomsDiv.appendChild(roomDiv);
+  }
+
+  let iconClass = (i == 1 || i == 5) ? "fan" : "light";
+
+  const deviceDiv = document.createElement("div");
+  deviceDiv.className = "device";
+  deviceDiv.innerHTML = `
+    <div class="icon ${iconClass}">${icons[i]}</div>
+    <div class="deviceName">${deviceNames[i]}</div>
+    <div class="timerCircle" id="circle${i}"><span id="timer${i}"></span></div>
+    <label class="toggle">
+      <input type="checkbox" data-id="${i}">
+      <span class="slider"></span>
+    </label>
+    <button class="iconBtn" onclick="setTimer(${i})">⏱</button>
+    <button class="iconBtn" onclick="showUsage(${i})">📊</button>
+  `;
+  roomDiv.appendChild(deviceDiv);
 }
 
 document.querySelectorAll("input").forEach(el=>{el.onchange=()=>client.publish(topicCmd,el.dataset.id+(el.checked?"1":"0"))})
@@ -91,136 +114,96 @@ client.on("message",(topic,msg)=>{ parseData(msg.toString()) })
 function requestStatus(){ client.publish(topicCmd,"status") }
 
 function parseData(msg){
-if(msg.startsWith("S")){
-let p=msg.split(",")
-document.getElementById("wifiSSID").innerText=p[0].substring(1)
-document.getElementById("wifiRSSI").innerText=p[1].substring(1)+" dBm"
-return
-}
-let offset=msg.startsWith("a:")?0:4
-let parts=msg.split(",")
-let r=parts[0].substring(3)
-for(let i=0;i<4;i++){
-let id=offset+i
-let sw=document.querySelector('input[data-id="'+id+'"]')
-if(sw){ let state=r[i]=="1"; sw.checked=state; sw.closest(".device").classList.toggle("on",state) }
-}
-for(let i=0;i<4;i++){ let id=offset+i; let m=parseInt(parts[i+1].replace("T",""))||0; if(m>0 && timers[id]===0){ timers[id]=m*60; timerTotal[id]=m*60 } if(m===0){ timers[id]=0; timerTotal[id]=0 } }
-for(let i=0;i<4;i++){ let id=offset+i; usageData[id]=parseInt(parts[i+5].replace("U",""))||0 }
-updateGraph()
+  if(msg.startsWith("S")){
+    let p=msg.split(",")
+    document.getElementById("wifiSSID").innerText=p[0].substring(1)
+    document.getElementById("wifiRSSI").innerText=p[1].substring(1)+" dBm"
+    return
+  }
+  let offset=msg.startsWith("a:")?0:4
+  let parts=msg.split(",")
+  let r=parts[0].substring(3)
+  for(let i=0;i<4;i++){
+    let id=offset+i
+    let sw=document.querySelector('input[data-id="'+id+'"]')
+    if(sw){ let state=r[i]=="1"; sw.checked=state; sw.closest(".device").classList.toggle("on",state) }
+  }
+  for(let i=0;i<4;i++){ let id=offset+i; usageData[id]=parseInt(parts[i+5-offset].replace("U",""))||0 }
+  for(let i=0;i<4;i++){ let id=offset+i; let m=parseInt(parts[i+1].replace("T",""))||0; if(m>0 && timers[id]===0){ timers[id]=m*60; timerTotal[id]=m*60 } if(m===0){ timers[id]=0; timerTotal[id]=0 } }
+  updateGraph()
 }
 
-// --- Timer update with ending voice ---
+// Timer update with ending voice
 setInterval(()=>{
-for(let i=0;i<8;i++){
-if(timers[i]>0){
-timers[i]--
-let m=Math.floor(timers[i]/60), s=timers[i]%60
-if(s<10) s="0"+s
-document.getElementById("timer"+i).innerText=m+":"+s
-if(timerTotal[i]>0){ let progress=(timers[i]/timerTotal[i])*360; document.getElementById("circle"+i).style.background="conic-gradient(#22c55e "+progress+"deg,#1e293b 0deg)" }
-if(timers[i]==0 && timerTotal[i]>0){ speak(`${deviceNames[i]} timer finished in ${i<4?"Room 1":"Room 2"}`); timerTotal[i]=0 } // timer finished feedback
-}
-}
+  for(let i=0;i<8;i++){
+    if(timers[i]>0){
+      timers[i]--
+      let m=Math.floor(timers[i]/60), s=timers[i]%60
+      if(s<10) s="0"+s
+      document.getElementById("timer"+i).innerText=m+":"+s
+      if(timerTotal[i]>0){ let progress=(timers[i]/timerTotal[i])*360; document.getElementById("circle"+i).style.background="conic-gradient(#22c55e "+progress+"deg,#1e293b 0deg)" }
+      if(timers[i]==0 && timerTotal[i]>0){ speak(`${deviceNames[i]} timer finished in ${i<4?"Room 1":"Room 2"}`); timerTotal[i]=0 }
+    }
+  }
 },1000)
 
-// --- Smart Usage Chart ---
+// Usage chart
 const usageChart = new Chart(document.getElementById("usageChart"), {
 type: "bar",
-data: {
-labels: ["Light", "Fan", "Tube/Bulb", "Socket"],
-datasets: [
-{label: "Room 1 Usage (min)", data: usageData.slice(0, 4), backgroundColor: ["#22c55e","#3b82f6","#f59e0b","#ef4444"]},
-{label: "Room 2 Usage (min)", data: usageData.slice(4, 8), backgroundColor: ["#16a34a","#2563eb","#d97706","#dc2626"]}
-]
-},
-options: {
-responsive: true,
-plugins: {
-tooltip: { callbacks: { label: ctx=>ctx.label+" ("+ctx.dataset.label+"): "+ctx.raw+" min" } },
-legend: { position:"top", labels:{font:{size:14}} }
-},
-scales: { y:{beginAtZero:true,title:{display:true,text:"Minutes Used",font:{size:14}}}, x:{title:{display:true,text:"Device Type",font:{size:14}}} }
-}
-});
-
+data: { labels: ["Light","Fan","Tube/Bulb","Socket"], datasets:[
+  {label:"Room 1 Usage (min)", data: usageData.slice(0,4), backgroundColor: ["#22c55e","#3b82f6","#f59e0b","#ef4444"]},
+  {label:"Room 2 Usage (min)", data: usageData.slice(4,8), backgroundColor: ["#16a34a","#2563eb","#d97706","#dc2626"]}
+]},
+options: { responsive:true, plugins:{ tooltip:{callbacks:{label:ctx=>ctx.label+": "+ctx.raw+" min"}}, legend:{position:"top", labels:{font:{size:14}}}}, scales:{ y:{beginAtZero:true,title:{display:true,text:"Minutes Used",font:{size:14}}}, x:{title:{display:true,text:"Device Type",font:{size:14}}} } }
+})
 function updateGraph(){ usageChart.data.datasets[0].data=usageData.slice(0,4); usageChart.data.datasets[1].data=usageData.slice(4,8); let maxVal=Math.max(...usageData); usageChart.options.scales.y.max=maxVal<10?10:maxVal+10; usageChart.update() }
 
-// --- Voice ---
+// Voice
 function speak(t){ speechSynthesis.speak(new SpeechSynthesisUtterance(t)) }
-
-function normalizeVoice(text){
-text = text.toLowerCase();
-text = text.replace(/\bone\b/g,"1");
-text = text.replace(/\btwo\b/g,"2");
-text = text.replace(/\bto\b/g,"2");
-text = text.replace(/\bthree\b/g,"3");
-text = text.replace(/\bfour\b/g,"4");
-text = text.replace(/\bof\b/g,"off");
-text = text.replace(/\bturn on\b/g,"on");
-text = text.replace(/\bturn off\b/g,"off");
-return text;
-}
-
+function normalizeVoice(text){ text=text.toLowerCase(); text=text.replace(/\bone\b/g,"1").replace(/\btwo\b/g,"2").replace(/\bto\b/g,"2").replace(/\bthree\b/g,"3").replace(/\bfour\b/g,"4").replace(/\bof\b/g,"off").replace(/\bturn on\b/g,"on").replace(/\bturn off\b/g,"off"); return text; }
 function startVoice(){
 const SpeechRecognition=window.SpeechRecognition||window.webkitSpeechRecognition
 const rec=new SpeechRecognition()
 let popup=document.getElementById("voicePopup"), waves=document.querySelectorAll(".wave")
 waves.forEach(w=>w.style.display="block")
 popup.innerText="🎤 Listening..."; popup.style.display="block"
+let hideTimeout=setTimeout(()=>{ popup.style.display="none"; waves.forEach(w=>w.style.display="none"); rec.stop() },8000)
 rec.start()
 rec.onresult=(e)=>{
-let text=e.results[0][0].transcript
-text = normalizeVoice(text);
-popup.innerText=text
-voiceCommand(text)
-setTimeout(()=>popup.style.display="none",2000)
-waves.forEach(w=>w.style.display="none")
+  clearTimeout(hideTimeout)
+  let text=e.results[0][0].transcript
+  text = normalizeVoice(text);
+  popup.innerText=text
+  voiceCommand(text)
+  setTimeout(()=>popup.style.display="none",2000)
+  waves.forEach(w=>w.style.display="none")
 }
+rec.onspeechend=()=>{ popup.style.display="none"; waves.forEach(w=>w.style.display="none") }
 }
 
-// --- Full AI Voice Commands ---
+// Flexible AI voice commands
 function voiceCommand(cmd){
-cmd=cmd.toLowerCase()
-const deviceMap={"room 1 light":0,"room 1 fan":1,"room 1 tube":2,"room 1 socket":3,"room 2 light":4,"room 2 fan":5,"room 2 bulb":6,"room 2 socket":7}
-const roomMap={"room 1":[0,1,2,3],"room 2":[4,5,6,7]}
-const typeMap={"light":[0,4,2,6],"fan":[1,5],"tube":[2],"bulb":[6],"socket":[3,7]}
-const control=(ids,action)=>ids.forEach(id=>client.publish(topicCmd,id+(action?"1":"0")))
-let m=cmd.match(/(\d+)\s*minutes?/), timerMinutes=m?parseInt(m[1]):null
-let feedback=[], except=cmd.match(/except\s+([a-z\s,]+)/), exceptIds=[]
-if(except){ except[1].split(",").map(s=>s.trim()).forEach(t=>{ if(typeMap[t]) exceptIds.push(...typeMap[t]) }) }
-let roomMention=Object.keys(roomMap).find(r=>cmd.includes(r))||lastRoom
-let typeMention=Object.keys(typeMap).find(t=>cmd.includes(t))||lastDeviceType
-if(roomMention) lastRoom=roomMention; if(typeMention) lastDeviceType=typeMention
-if(roomMention && typeMention){
-let ids=roomMap[roomMention].filter(id=>typeMap[typeMention].includes(id)).filter(id=>!exceptIds.includes(id))
-if(cmd.includes("on")){ control(ids,true); feedback.push(`${typeMention} in ${roomMention} turned on`) }
-if(cmd.includes("off")){ control(ids,false); feedback.push(`${typeMention} in ${roomMention} turned off`) }
-if(timerMinutes){ ids.forEach(id=>client.publish(topicCmd,"T"+id+timerMinutes)); feedback.push(`Timer set for ${typeMention} in ${roomMention} ${timerMinutes} minutes`) }
+cmd = cmd.toLowerCase(); cmd = normalizeVoice(cmd)
+const roomsMap = {"1":[0,1,2,3], "2":[4,5,6,7]}
+const typesMap = {"light":[0,4,2,6], "fan":[1,5], "tube":[2], "bulb":[6], "socket":[3,7]}
+let roomNum = cmd.match(/\broom\s*(\d)\b)? cmd.match(/\broom\s*(\d)\b/)[1] : null
+let type = Object.keys(typesMap).find(t=>cmd.includes(t))
+let action = cmd.includes("on") ? true : cmd.includes("off") ? false : null
+let timerMatch = cmd.match(/(\d+)\s*minutes?/)
+let timerMinutes = timerMatch ? parseInt(timerMatch[1]) : null
+
+if(roomNum && type){
+  let ids = roomsMap[roomNum].filter(id=>typesMap[type].includes(id))
+  if(action!==null){ ids.forEach(id=>client.publish(topicCmd,id+(action?"1":"0"))); speak(`${type} in Room ${roomNum} turned ${action?"on":"off"}`) }
+  if(timerMinutes){ ids.forEach(id=>client.publish(topicCmd,"T"+id+timerMinutes)); speak(`Timer set for ${type} in Room ${roomNum} ${timerMinutes} minutes`) }
+  return
 }
-if(roomMention&&(cmd.includes("turn on all")||cmd.includes("turn off all")||cmd.includes("all on")||cmd.includes("all off"))){
-let ids=roomMap[roomMention].filter(id=>!exceptIds.includes(id))
-let action=cmd.includes("on")||cmd.includes("all on")
-control(ids,action); feedback.push(`${roomMention} all devices turned ${action?"on":"off"}`)
-}
-if(typeMention && !roomMention){
-let ids=typeMap[typeMention].filter(id=>!exceptIds.includes(id))
-if(cmd.includes("on")){ control(ids,true); feedback.push(`All ${typeMention} turned on`) }
-if(cmd.includes("off")){ control(ids,false); feedback.push(`All ${typeMention} turned off`) }
-if(timerMinutes){ ids.forEach(id=>client.publish(topicCmd,"T"+id+timerMinutes)); feedback.push(`Timer set for all ${typeMention} ${timerMinutes} minutes`) }
-}
-if(cmd.includes("everything")||cmd.includes("all devices")){
-let allIds=Array.from({length:8},(_,i)=>i).filter(id=>!exceptIds.includes(id))
-let action=cmd.includes("on")||cmd.includes("turn on")
-control(allIds,action)
-if(timerMinutes){ allIds.forEach(id=>client.publish(topicCmd,"T"+id+timerMinutes)); feedback.push(`Timer set for all devices ${timerMinutes} minutes`) }
-feedback.push(`All devices turned ${action?"on":"off"}`)
-}
-if(cmd.includes("status")||cmd.includes("current status")||cmd.includes("check")){
-client.publish(topicCmd,"status"); feedback.push("Sending current status") }
-if(feedback.length>0) speak(feedback.join(". "))
-else speak("Command not recognized. Please specify a room or device.")
+if(type && !roomNum){ let ids = typesMap[type]; if(action!==null){ ids.forEach(id=>client.publish(topicCmd,id+(action?"1":"0")); speak(`All ${type} turned ${action?"on":"off"}`)) } if(timerMinutes){ ids.forEach(id=>client.publish(topicCmd,"T"+id+timerMinutes)); speak(`Timer set for all ${type} ${timerMinutes} minutes`) } return }
+if(roomNum && !type){ let ids = roomsMap[roomNum]; if(action!==null){ ids.forEach(id=>client.publish(topicCmd,id+(action?"1":"0")); speak(`All devices in Room ${roomNum} turned ${action?"on":"off"}`)) } if(timerMinutes){ ids.forEach(id=>client.publish(topicCmd,"T"+id+timerMinutes)); speak(`Timer set for all devices in Room ${roomNum} ${timerMinutes} minutes`) } return }
+if(cmd.includes("everything")||cmd.includes("all devices")){ let allIds=Array.from({length:8},(_,i)=>i); if(action!==null){ allIds.forEach(id=>client.publish(topicCmd,id+(action?"1":"0")); speak(`All devices turned ${action?"on":"off"}`)) } if(timerMinutes){ allIds.forEach(id=>client.publish(topicCmd,"T"+id+timerMinutes)); speak(`Timer set for all devices ${timerMinutes} minutes`) } return }
+if(cmd.includes("status")||cmd.includes("current status")||cmd.includes("check")){ client.publish(topicCmd,"status"); speak("Sending current status"); return }
+speak("Command not recognized. Please specify a room or device.")
 }
 </script>
 </body>
-    </html>
+</html>
