@@ -57,16 +57,12 @@ twemoji.parse(document.body)
 
 const broker="wss://5dba91287f8248c1a30195053d3862ed.s1.eu.hivemq.cloud:8884/mqtt"
 const topicCmd="home/esp32/commands"
-
-const client=mqtt.connect(broker,{
-username:"Debarghya_Sannigrahi",
-password:"Dsann#5956"
-})
+const client=mqtt.connect(broker,{username:"Debarghya_Sannigrahi",password:"Dsann#5956"})
 
 let usageData=new Array(8).fill(0)
 let timers=new Array(8).fill(0)
 let timerTotal=new Array(8).fill(0)
-let lastRoom=null, lastDeviceType=null;
+let lastRoom=null, lastDeviceType=null
 
 const deviceNames=["Light","Fan","Tube","Socket","Light","Fan","Bulb","Socket"]
 const icons=["💡","🌀","💡","🔌","💡","🌀","💡","🔌"]
@@ -89,7 +85,6 @@ roomDiv.innerHTML+=`
 }
 
 document.querySelectorAll("input").forEach(el=>{el.onchange=()=>client.publish(topicCmd,el.dataset.id+(el.checked?"1":"0"))})
-
 client.on("connect",()=>{ document.getElementById("mqttStatus").innerText="Connected"; client.subscribe("home/esp32/update"); client.subscribe("home/esp32/wifi_status"); })
 client.on("message",(topic,msg)=>{ parseData(msg.toString()) })
 
@@ -115,60 +110,56 @@ for(let i=0;i<4;i++){ let id=offset+i; usageData[id]=parseInt(parts[i+5].replace
 updateGraph()
 }
 
-function showUsage(id){ alert(deviceNames[id]+" Usage: "+usageData[id]+" minutes") }
-function setTimer(id){ let m=prompt("Timer minutes"); if(!m) return; client.publish(topicCmd,"T"+id+m) }
-
-// --- Timer update ---
+// --- Timer update with ending voice ---
 setInterval(()=>{
 for(let i=0;i<8;i++){
 if(timers[i]>0){
-timers[i]--; let m=Math.floor(timers[i]/60), s=timers[i]%60; if(s<10)s="0"+s
+timers[i]--
+let m=Math.floor(timers[i]/60), s=timers[i]%60
+if(s<10) s="0"+s
 document.getElementById("timer"+i).innerText=m+":"+s
-if(timerTotal[i]>0){ let progress=(timers[i]/timerTotal[i])*360; document.getElementById("circle"+i).style.background="conic-gradient(#22c55e "+progress+"deg,#1e293b 0deg)"}}
+if(timerTotal[i]>0){ let progress=(timers[i]/timerTotal[i])*360; document.getElementById("circle"+i).style.background="conic-gradient(#22c55e "+progress+"deg,#1e293b 0deg)" }
+if(timers[i]==0 && timerTotal[i]>0){ speak(`${deviceNames[i]} timer finished in ${i<4?"Room 1":"Room 2"}`); timerTotal[i]=0 } // timer finished feedback
+}
 }
 },1000)
 
 // --- Smart Usage Chart ---
 const usageChart = new Chart(document.getElementById("usageChart"), {
-    type: "bar",
-    data: {
-        labels: ["Light", "Fan", "Tube/Bulb", "Socket"],
-        datasets: [
-            {label: "Room 1 Usage (min)", data: usageData.slice(0, 4), backgroundColor: ["#22c55e","#3b82f6","#f59e0b","#ef4444"]},
-            {label: "Room 2 Usage (min)", data: usageData.slice(4, 8), backgroundColor: ["#16a34a","#2563eb","#d97706","#dc2626"]}
-        ]
-    },
-    options: {
-        responsive: true,
-        plugins: {
-            tooltip: { callbacks: { label: ctx=>ctx.label+" ("+ctx.dataset.label+"): "+ctx.raw+" min" } },
-            legend: { position:"top", labels:{font:{size:14}} }
-        },
-        scales: { y:{beginAtZero:true,title:{display:true,text:"Minutes Used",font:{size:14}}}, x:{title:{display:true,text:"Device Type",font:{size:14}}} }
-    }
+type: "bar",
+data: {
+labels: ["Light", "Fan", "Tube/Bulb", "Socket"],
+datasets: [
+{label: "Room 1 Usage (min)", data: usageData.slice(0, 4), backgroundColor: ["#22c55e","#3b82f6","#f59e0b","#ef4444"]},
+{label: "Room 2 Usage (min)", data: usageData.slice(4, 8), backgroundColor: ["#16a34a","#2563eb","#d97706","#dc2626"]}
+]
+},
+options: {
+responsive: true,
+plugins: {
+tooltip: { callbacks: { label: ctx=>ctx.label+" ("+ctx.dataset.label+"): "+ctx.raw+" min" } },
+legend: { position:"top", labels:{font:{size:14}} }
+},
+scales: { y:{beginAtZero:true,title:{display:true,text:"Minutes Used",font:{size:14}}}, x:{title:{display:true,text:"Device Type",font:{size:14}}} }
+}
 });
 
-function updateGraph(){
-usageChart.data.datasets[0].data=usageData.slice(0,4);
-usageChart.data.datasets[1].data=usageData.slice(4,8);
-let maxVal=Math.max(...usageData);
-usageChart.options.scales.y.max=maxVal<10?10:maxVal+10;
-usageChart.update();
-}
+function updateGraph(){ usageChart.data.datasets[0].data=usageData.slice(0,4); usageChart.data.datasets[1].data=usageData.slice(4,8); let maxVal=Math.max(...usageData); usageChart.options.scales.y.max=maxVal<10?10:maxVal+10; usageChart.update() }
 
 // --- Voice ---
 function speak(t){ speechSynthesis.speak(new SpeechSynthesisUtterance(t)) }
 
 function normalizeVoice(text){
-    text = text.toLowerCase();
-    text = text.replace(/\bone\b/g,"1");
-    text = text.replace(/\btwo\b/g,"2");
-    text = text.replace(/\bthree\b/g,"3");
-    text = text.replace(/\bfour\b/g,"4");
-    text = text.replace(/\bof\b/g,"off");
-    text = text.replace(/\bturn on\b/g,"on");
-    text = text.replace(/\bturn off\b/g,"off");
-    return text;
+text = text.toLowerCase();
+text = text.replace(/\bone\b/g,"1");
+text = text.replace(/\btwo\b/g,"2");
+text = text.replace(/\bto\b/g,"2");
+text = text.replace(/\bthree\b/g,"3");
+text = text.replace(/\bfour\b/g,"4");
+text = text.replace(/\bof\b/g,"off");
+text = text.replace(/\bturn on\b/g,"on");
+text = text.replace(/\bturn off\b/g,"off");
+return text;
 }
 
 function startVoice(){
@@ -203,7 +194,7 @@ let typeMention=Object.keys(typeMap).find(t=>cmd.includes(t))||lastDeviceType
 if(roomMention) lastRoom=roomMention; if(typeMention) lastDeviceType=typeMention
 if(roomMention && typeMention){
 let ids=roomMap[roomMention].filter(id=>typeMap[typeMention].includes(id)).filter(id=>!exceptIds.includes(id))
-if(cmd.includes("on")||cmd.includes("on")){ control(ids,true); feedback.push(`${typeMention} in ${roomMention} turned on`) }
+if(cmd.includes("on")){ control(ids,true); feedback.push(`${typeMention} in ${roomMention} turned on`) }
 if(cmd.includes("off")){ control(ids,false); feedback.push(`${typeMention} in ${roomMention} turned off`) }
 if(timerMinutes){ ids.forEach(id=>client.publish(topicCmd,"T"+id+timerMinutes)); feedback.push(`Timer set for ${typeMention} in ${roomMention} ${timerMinutes} minutes`) }
 }
@@ -232,4 +223,4 @@ else speak("Command not recognized. Please specify a room or device.")
 }
 </script>
 </body>
-  </html>
+    </html>
