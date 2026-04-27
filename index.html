@@ -26,23 +26,15 @@ body{font-family:'Roboto',sans-serif;background:#0f172a;color:white;margin:0;tex
 .icon{font-size:22px;width:30px;}
 .device.on .fan{animation:spin 1s linear infinite;}
 .fanPanel{
-
 max-height:0;
-
 overflow:hidden;
-
 transition:max-height 0.35s ease;
-
 background:#020617;
-
 margin-top:-6px;
-
 margin-bottom:10px;
-
 border-radius:10px;
-
 padding:0 10px;
-
+box-sizing:border-box;
 }
 
 .fanPanel input[type=range]{
@@ -190,7 +182,18 @@ max="4"
 step="1"
 value="0"
 
-oninput="setFanSpeed(${fanRoom},this.value)">
+oninput="
+setFanSpeed(${fanRoom},this.value);
+this.nextElementSibling.innerText='Speed: '+this.value;
+">
+
+<div style="
+font-size:12px;
+color:#94a3b8;
+margin-bottom:8px;
+">
+Speed: 0
+</div>
 
 </div>
 
@@ -252,7 +255,14 @@ ${extraPanel}
 `
 
 }
-document.querySelectorAll("input").forEach(el=>{el.onchange=()=>client.publish(topicCmd,el.dataset.id+(el.checked?"1":"0"))})
+document.querySelectorAll("input[data-id]").forEach(el=>{
+el.onchange=()=>{
+client.publish(
+topicCmd,
+el.dataset.id + (el.checked ? "1" : "0")
+)
+}
+})
 
 client.on("connect",()=>{ 
   document.getElementById("mqttStatus").innerText="Connected"; 
@@ -269,19 +279,36 @@ function requestStatus(){ client.publish(topicCmd,"status") }
 function parseData(msg){
 if(msg.startsWith("F")){
 
-let p=msg.substring(1).split(",");
+let p = msg.substring(1).split(",");
 
-let f1=parseInt(p[0]??0)||0;
-let f2=parseInt(p[1]??0)||0;
+let f1 = parseInt(p[0] ?? 0) || 0;
+let f2 = parseInt(p[1] ?? 0) || 0;
 
-let fan1=document.getElementById("fanSlider1");
-let fan2=document.getElementById("fanSlider2");
+// ---- Room 1 ----
+let panel1 = document.getElementById("fanPanel1");
 
-if(fan1)
-fan1.querySelector("input").value=f1;
+if(panel1){
 
-if(fan2)
-fan2.querySelector("input").value=f2;
+let slider1 = panel1.querySelector("input[type='range']");
+
+if(slider1){
+slider1.value = f1;
+}
+
+}
+
+// ---- Room 2 ----
+let panel2 = document.getElementById("fanPanel2");
+
+if(panel2){
+
+let slider2 = panel2.querySelector("input[type='range']");
+
+if(slider2){
+slider2.value = f2;
+}
+
+}
 
 return;
 }
@@ -299,7 +326,33 @@ for(let i=0;i<4;i++){
   let sw=document.querySelector('input[data-id="'+id+'"]')
   if(sw){ let state=r[i]=="1"; sw.checked=state; sw.closest(".device").classList.toggle("on",state) }
 }
-for(let i=0;i<4;i++){ let id=offset+i; let m=parseInt(parts[i+1].replace("T",""))||0; if(m>0 && timers[id]===0){ timers[id]=m*60; timerTotal[id]=m*60 } if(m===0){ timers[id]=0; timerTotal[id]=0 } }
+for(let i=0;i<4;i++){
+
+let id = offset+i;
+
+let m = parseInt(parts[i+1].replace("T","")) || 0;
+
+let seconds = m * 60;
+
+// Only update if changed
+if(seconds > 0){
+
+if(timers[id] !== seconds){
+
+timers[id] = seconds;
+timerTotal[id] = seconds;
+
+}
+
+}
+else{
+
+timers[id] = 0;
+timerTotal[id] = 0;
+
+}
+
+}
 for(let i=0;i<4;i++){ let id=offset+i; usageData[id]=parseInt(parts[i+5].replace("U",""))||0 }
 updateGraphs()
 }
@@ -308,15 +361,30 @@ function showUsage(id){ alert(deviceNames[id]+" Usage: "+usageData[id]+" minutes
 function setTimer(id){ let m=prompt("Timer minutes"); if(!m) return; client.publish(topicCmd,"T"+id+m) }
 
 // --- Timer circle ---
+let timerEls=[];
+let circleEls=[];
+
+for(let i=0;i<8;i++){
+
+timerEls[i]=document.getElementById("timer"+i);
+
+circleEls[i]=document.getElementById("circle"+i);
+
+}
 setInterval(()=>{
 for(let i=0;i<8;i++){
 if(timers[i]>0){
   timers[i]--; 
   let m=Math.floor(timers[i]/60), s=timers[i]%60; if(s<10)s="0"+s
-  document.getElementById("timer"+i).innerText=m+":"+s
+ timerEls[i].innerText=m+":"+s
   if(timerTotal[i]>0){ 
     let progress=(timers[i]/timerTotal[i])*360; 
-    document.getElementById("circle"+i).style.background="conic-gradient(#22c55e "+progress+"deg,#1e293b 0deg)"
+   if(timers[i] % 2 === 0){
+
+circleEls[i].style.background=
+"conic-gradient(#22c55e "+progress+"deg,#1e293b 0deg)"
+
+}
   }
   if(timers[i]===0 && timerTotal[i]>0) speak(deviceNames[i]+" timer ended")
 }}
