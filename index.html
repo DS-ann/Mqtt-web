@@ -25,15 +25,48 @@ body{font-family:'Roboto',sans-serif;background:#0f172a;color:white;margin:0;tex
 .device.on{background:#1e3a2f;box-shadow:0 0 10px #22c55e;}
 .icon{font-size:22px;width:30px;}
 .device.on .fan{animation:spin 1s linear infinite;}
-.fanSliderBox{
-display:none;
-width:100%;
-margin-top:8px;
+.fanPanel{
+
+max-height:0;
+
+overflow:hidden;
+
+transition:max-height 0.35s ease;
+
+background:#020617;
+
+margin-top:-6px;
+
+margin-bottom:10px;
+
+border-radius:10px;
+
+padding:0 10px;
+
 }
 
-.fanSliderBox input[type=range]{
-width:90%;
+.fanPanel input[type=range]{
+
+width:95%;
+
+margin:12px 0;
+
 accent-color:#22c55e;
+
+}
+
+/* Arrow rotate */
+
+.fanArrow{
+
+transition:transform 0.3s ease;
+
+}
+
+.fanArrow.open{
+
+transform:rotate(180deg);
+
 }
 .device.on .light{animation:glow 1.5s infinite alternate;}
 @keyframes spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}
@@ -94,55 +127,95 @@ const roomsDiv=document.getElementById("rooms")
 
 // --- Create rooms ---
 for(let i=0;i<8;i++){
+
 let room=i<4?1:2
+
 let roomDiv=document.getElementById("room"+room)
-if(!roomDiv){ roomDiv=document.createElement("div"); roomDiv.className="room"; roomDiv.id="room"+room; roomDiv.innerHTML="<h3>Room "+room+"</h3>"; roomsDiv.appendChild(roomDiv); }
+
+if(!roomDiv){
+
+roomDiv=document.createElement("div")
+
+roomDiv.className="room"
+
+roomDiv.id="room"+room
+
+roomDiv.innerHTML="<h3>Room "+room+"</h3>"
+
+roomsDiv.appendChild(roomDiv)
+
+}
+
 let iconClass=(i==1||i==5)?"fan":"light"
 
 let controlHTML="";
+
+let extraPanel="";
 
 // --- FAN DEVICES ---
 if(i==1 || i==5){
 
 let fanRoom=(i==1)?1:2;
 
+// Fan toggle + arrow
 controlHTML=`
+
 <label class="toggle">
+
 <input type="checkbox" data-id="${i}">
+
 <span class="slider"></span>
+
 </label>
 
-<button class="iconBtn"
-onclick="toggleFanSlider(${fanRoom})">
+<button class="iconBtn fanArrow"
+id="fanArrow${fanRoom}"
+onclick="toggleFanPanel(${fanRoom})">
+
 ▼
+
 </button>
 
-<div class="fanSliderBox"
-id="fanSlider${fanRoom}">
+`;
+
+// Separate sliding panel (OUTSIDE device)
+extraPanel=`
+
+<div class="fanPanel"
+id="fanPanel${fanRoom}">
 
 <input type="range"
 min="0"
 max="4"
 step="1"
 value="0"
+
 oninput="setFanSpeed(${fanRoom},this.value)">
 
 </div>
+
 `;
+
 }
 
 // --- NORMAL DEVICES ---
 else{
 
 controlHTML=`
+
 <label class="toggle">
+
 <input type="checkbox" data-id="${i}">
+
 <span class="slider"></span>
+
 </label>
+
 `;
 
 }
 
+// --- DEVICE CARD ---
 roomDiv.innerHTML+=`
 
 <div class="device">
@@ -173,9 +246,12 @@ onclick="showUsage(${i})">
 </button>
 
 </div>
-`
-}
 
+${extraPanel}
+
+`
+
+}
 document.querySelectorAll("input").forEach(el=>{el.onchange=()=>client.publish(topicCmd,el.dataset.id+(el.checked?"1":"0"))})
 
 client.on("connect",()=>{ 
@@ -264,29 +340,57 @@ usageChart1.update()
 usageChart2.update()
 }
 
-function toggleFanSlider(room){
+function toggleFanPanel(room){
 
-["fanSlider1","fanSlider2"]
-.forEach(id=>{
+let panel=document.getElementById(
+"fanPanel"+room
+);
 
-let el=document.getElementById(id);
+let arrow=document.getElementById(
+"fanArrow"+room
+);
 
-if(!el) return;
+if(!panel || !arrow) return;
 
-if(id==="fanSlider"+room){
+// Close other panels
+["fanPanel1","fanPanel2"].forEach(id=>{
 
-el.style.display=
-(el.style.display==="block")
-?"none":"block";
+if(id!=="fanPanel"+room){
+
+let p=document.getElementById(id);
+
+let a=document.getElementById(
+id.replace("Panel","Arrow")
+);
+
+if(p){
+
+p.style.maxHeight=null;
+
+a.classList.remove("open");
 
 }
-else{
-
-el.style.display="none";
 
 }
 
 });
+
+// Toggle selected panel
+if(panel.style.maxHeight){
+
+panel.style.maxHeight=null;
+
+arrow.classList.remove("open");
+
+}
+else{
+
+panel.style.maxHeight=
+panel.scrollHeight+"px";
+
+arrow.classList.add("open");
+
+}
 
 }
 function setFanSpeed(room,speed){
