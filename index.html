@@ -25,6 +25,16 @@ body{font-family:'Roboto',sans-serif;background:#0f172a;color:white;margin:0;tex
 .device.on{background:#1e3a2f;box-shadow:0 0 10px #22c55e;}
 .icon{font-size:22px;width:30px;}
 .device.on .fan{animation:spin 1s linear infinite;}
+.fanSliderBox{
+display:none;
+width:100%;
+margin-top:8px;
+}
+
+.fanSliderBox input[type=range]{
+width:90%;
+accent-color:#22c55e;
+}
 .device.on .light{animation:glow 1.5s infinite alternate;}
 @keyframes spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}
 @keyframes glow{from{text-shadow:0 0 5px #fff}to{text-shadow:0 0 20px yellow}}
@@ -88,15 +98,82 @@ let room=i<4?1:2
 let roomDiv=document.getElementById("room"+room)
 if(!roomDiv){ roomDiv=document.createElement("div"); roomDiv.className="room"; roomDiv.id="room"+room; roomDiv.innerHTML="<h3>Room "+room+"</h3>"; roomsDiv.appendChild(roomDiv); }
 let iconClass=(i==1||i==5)?"fan":"light"
+
+let controlHTML="";
+
+// --- FAN DEVICES ---
+if(i==1 || i==5){
+
+let fanRoom=(i==1)?1:2;
+
+controlHTML=`
+<label class="toggle">
+<input type="checkbox" data-id="${i}">
+<span class="slider"></span>
+</label>
+
+<button class="iconBtn"
+onclick="toggleFanSlider(${fanRoom})">
+▼
+</button>
+
+<div class="fanSliderBox"
+id="fanSlider${fanRoom}">
+
+<input type="range"
+min="0"
+max="4"
+step="1"
+value="0"
+oninput="setFanSpeed(${fanRoom},this.value)">
+
+</div>
+`;
+}
+
+// --- NORMAL DEVICES ---
+else{
+
+controlHTML=`
+<label class="toggle">
+<input type="checkbox" data-id="${i}">
+<span class="slider"></span>
+</label>
+`;
+
+}
+
 roomDiv.innerHTML+=`
+
 <div class="device">
-<div class="icon ${iconClass}">${icons[i]}</div>
-<div>${deviceNames[i]}</div>
-<div class="timerCircle" id="circle${i}"><span id="timer${i}"></span></div>
-<label class="toggle"><input type="checkbox" data-id="${i}"><span class="slider"></span></label>
-<button class="iconBtn" onclick="setTimer(${i})">⏱</button>
-<button class="iconBtn" onclick="showUsage(${i})">📊</button>
-</div>`
+
+<div class="icon ${iconClass}">
+${icons[i]}
+</div>
+
+<div>
+${deviceNames[i]}
+</div>
+
+<div class="timerCircle"
+id="circle${i}">
+<span id="timer${i}"></span>
+</div>
+
+${controlHTML}
+
+<button class="iconBtn"
+onclick="setTimer(${i})">
+⏱
+</button>
+
+<button class="iconBtn"
+onclick="showUsage(${i})">
+📊
+</button>
+
+</div>
+`
 }
 
 document.querySelectorAll("input").forEach(el=>{el.onchange=()=>client.publish(topicCmd,el.dataset.id+(el.checked?"1":"0"))})
@@ -114,6 +191,24 @@ function requestStatus(){ client.publish(topicCmd,"status") }
 
 // --- Parse data from ESP ---
 function parseData(msg){
+if(msg.startsWith("F")){
+
+let p=msg.substring(1).split(",");
+
+let f1=parseInt(p[0]??0)||0;
+let f2=parseInt(p[1]??0)||0;
+
+let fan1=document.getElementById("fanSlider1");
+let fan2=document.getElementById("fanSlider2");
+
+if(fan1)
+fan1.querySelector("input").value=f1;
+
+if(fan2)
+fan2.querySelector("input").value=f2;
+
+return;
+}
 if(msg.startsWith("S")){
   let p=msg.split(",")
   document.getElementById("wifiSSID").innerText=p[0].substring(1)
@@ -169,6 +264,39 @@ usageChart1.update()
 usageChart2.update()
 }
 
+function toggleFanSlider(room){
+
+["fanSlider1","fanSlider2"]
+.forEach(id=>{
+
+let el=document.getElementById(id);
+
+if(!el) return;
+
+if(id==="fanSlider"+room){
+
+el.style.display=
+(el.style.display==="block")
+?"none":"block";
+
+}
+else{
+
+el.style.display="none";
+
+}
+
+});
+
+}
+function setFanSpeed(room,speed){
+
+client.publish(
+topicCmd,
+"F"+room+speed
+);
+
+}
 // --- Voice ---
 function speak(t){ speechSynthesis.speak(new SpeechSynthesisUtterance(t)) }
 function normalizeVoice(text){
