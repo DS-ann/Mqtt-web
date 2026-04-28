@@ -23,6 +23,39 @@ body{font-family:'Roboto',sans-serif;background:#0f172a;color:white;margin:0;tex
 .room{background:#1e293b;margin:15px;padding:15px;border-radius:12px;}
 .device{display:flex;align-items:center;justify-content:space-between;background:#334155;padding:10px;margin:8px 0;border-radius:10px;transition:0.3s;}
 .device.on{background:#1e3a2f;box-shadow:0 0 10px #22c55e;}
+.modeTabs{
+
+display:flex;
+justify-content:center;
+gap:10px;
+margin:10px;
+
+}
+
+.modeBtn{
+
+background:#334155;
+color:white;
+border:none;
+padding:10px 18px;
+border-radius:10px;
+cursor:pointer;
+font-size:14px;
+
+}
+
+.modeBtn.active{
+
+background:#22c55e;
+
+}
+
+#wifiStatusBox,
+#bleStatusBox{
+
+margin-top:8px;
+
+}
 .icon{font-size:22px;width:30px;}
 .device.on .fan{animation:spin 1s linear infinite;}
 .fanPanel{
@@ -84,13 +117,48 @@ img.emoji{height:20px;width:20px;vertical-align:middle;}
 
 <div class="header">
 <h2>🏠 Ranjana's Smart Home</h2>
-MQTT: <span id="mqttStatus">Connecting...</span><br>
-WiFi: <span id="wifiSSID">--</span> Signal: <span id="wifiRSSI">--</span>
 <button class="updateBtn" onclick="requestStatus()">🔄</button>
 </div>
 
-<div id="rooms"></div>
+<!-- MODE TABS -->
+<div class="modeTabs">
 
+<button class="modeBtn active"
+id="wifiTab"
+onclick="setMode('wifi')">
+📶 WiFi Mode
+</button>
+
+<button class="modeBtn"
+id="bleTab"
+onclick="setMode('ble')">
+🔵 Bluetooth Mode
+</button>
+
+</div>
+
+<!-- Status Areas -->
+<div id="wifiStatusBox">
+
+MQTT:
+<span id="mqttStatus">Connecting...</span><br>
+
+WiFi:
+<span id="wifiSSID">--</span>
+
+Signal:
+<span id="wifiRSSI">--</span>
+
+</div>
+
+<div id="bleStatusBox" style="display:none">
+
+Bluetooth:
+<span id="bleStatus">Disconnected</span>
+
+</div>
+
+<div id="rooms"></div>
 <h3>Room 1 Usage</h3>
 <canvas id="usageChart1" width="350" height="200"></canvas>
 
@@ -109,6 +177,33 @@ const broker="wss://5dba91287f8248c1a30195053d3862ed.s1.eu.hivemq.cloud:8884/mqt
 const topicCmd="home/esp32/commands"
 const client=mqtt.connect(broker,{username:"Debarghya_Sannigrahi",password:"Dsann#5956"})
 
+// UNIVERSAL COMMAND SENDER
+function sendCommand(cmd){
+
+if(currentMode==="wifi"){
+
+if(client && client.connected){
+
+client.publish(topicCmd,cmd);   // ✅ correct
+
+}
+
+}
+else if(currentMode==="ble"){
+
+if(bleChar){
+
+let enc=new TextEncoder();
+
+bleChar.writeValue(
+enc.encode(cmd)
+);
+
+}
+
+}
+
+}
 let usageData=new Array(8).fill(0)
 let timers=new Array(8).fill(0)
 let timerTotal=new Array(8).fill(0)
@@ -255,25 +350,44 @@ ${extraPanel}
 `
 
 }
-document.querySelectorAll("input[data-id]").forEach(el=>{
+document.querySelectorAll("input")
+.forEach(el=>{
+
 el.onchange=()=>{
-client.publish(
-topicCmd,
-el.dataset.id + (el.checked ? "1" : "0")
-)
+
+sendCommand(
+el.dataset.id+
+(el.checked?"1":"0")
+);
+
 }
+
 })
 
 client.on("connect",()=>{ 
-  document.getElementById("mqttStatus").innerText="Connected"; 
-  client.subscribe("home/esp32/update"); 
-  client.subscribe("home/esp32/wifi_status"); 
-  requestStatus(); // Send status automatically on load
-})
+
+document.getElementById("mqttStatus")
+.innerText="Connected"; 
+
+client.subscribe("home/esp32/update"); 
+client.subscribe("home/esp32/wifi_status"); 
+
+requestStatus();
+
+});
+
+// ⭐ ADD THIS BLOCK AFTER connect()
+
+client.on("reconnect",()=>{
+
+document.getElementById("mqttStatus")
+.innerText="Reconnecting...";
+
+});
 
 client.on("message",(topic,msg)=>{ parseData(msg.toString()) })
 
-function requestStatus(){ client.publish(topicCmd,"status") }
+function requestStatus(){ sendCommand("status") }
 
 // --- Parse data from ESP ---
 function parseData(msg){
@@ -289,10 +403,19 @@ let panel1 = document.getElementById("fanPanel1");
 
 if(panel1){
 
-let slider1 = panel1.querySelector("input[type='range']");
+let slider1 =
+panel1.querySelector("input[type='range']");
+
+let label1 =
+panel1.querySelector("div");
 
 if(slider1){
 slider1.value = f1;
+}
+
+if(label1){
+label1.innerText =
+"Speed: " + f1;
 }
 
 }
@@ -302,10 +425,19 @@ let panel2 = document.getElementById("fanPanel2");
 
 if(panel2){
 
-let slider2 = panel2.querySelector("input[type='range']");
+let slider2 =
+panel2.querySelector("input[type='range']");
+
+let label2 =
+panel2.querySelector("div");
 
 if(slider2){
 slider2.value = f2;
+}
+
+if(label2){
+label2.innerText =
+"Speed: " + f2;
 }
 
 }
@@ -358,7 +490,7 @@ updateGraphs()
 }
 
 function showUsage(id){ alert(deviceNames[id]+" Usage: "+usageData[id]+" minutes") }
-function setTimer(id){ let m=prompt("Timer minutes"); if(!m) return; client.publish(topicCmd,"T"+id+m) }
+function setTimer(id){ let m=prompt("Timer minutes"); if(!m) return; sendCommand("T"+id+m) }
 
 // --- Timer circle ---
 let timerEls=[];
@@ -372,22 +504,40 @@ circleEls[i]=document.getElementById("circle"+i);
 
 }
 setInterval(()=>{
-for(let i=0;i<8;i++){
-if(timers[i]>0){
-  timers[i]--; 
-  let m=Math.floor(timers[i]/60), s=timers[i]%60; if(s<10)s="0"+s
- timerEls[i].innerText=m+":"+s
-  if(timerTotal[i]>0){ 
-    let progress=(timers[i]/timerTotal[i])*360; 
-   if(timers[i] % 2 === 0){
 
-circleEls[i].style.background=
-"conic-gradient(#22c55e "+progress+"deg,#1e293b 0deg)"
+for(let i=0;i<8;i++){
+
+if(timers[i] > 0){
+
+timers[i]--;
+
+let m=Math.floor(timers[i]/60);
+let s=timers[i]%60;
+
+if(s<10) s="0"+s;
+
+timerEls[i].innerText =
+m+":"+s;
+
+if(timerTotal[i] > 0){
+
+let progress =
+(timers[i] / timerTotal[i]) * 360;
+
+circleEls[i].style.background =
+"conic-gradient(#22c55e "+progress+"deg,#1e293b 0deg)";
 
 }
-  }
-  if(timers[i]===0 && timerTotal[i]>0) speak(deviceNames[i]+" timer ended")
-}}
+
+if(timers[i]===0 &&
+timerTotal[i]>0)
+
+speak(deviceNames[i]+" timer ended");
+
+}
+
+}
+
 },1000)
 
 // --- Charts ---
@@ -463,10 +613,155 @@ arrow.classList.add("open");
 }
 function setFanSpeed(room,speed){
 
-client.publish(
-topicCmd,
+sendCommand(
 "F"+room+speed
 );
+
+}
+let bleDevice=null;
+let bleServer=null;
+let bleChar=null;
+
+let lastDeviceId=null;   // ⭐ remember device
+let reconnectTimer=null; // ⭐ auto reconnect
+
+async function startBLEClient(){
+
+try{
+
+// Show connecting immediately
+document.getElementById("bleStatus")
+.innerText="Connecting...";
+
+// Request device only first time
+if(!bleDevice){
+
+bleDevice =
+await navigator.bluetooth.requestDevice({
+
+filters:[{
+namePrefix:"RanjanaSmartHome"
+}],
+
+optionalServices:[
+"6e400001-b5a3-f393-e0a9-e50e24dcca9e"
+]
+
+});
+
+lastDeviceId = bleDevice.id;
+
+}
+
+// Connect GATT
+bleServer =
+await bleDevice.gatt.connect();
+
+document.getElementById("bleStatus")
+.innerText="Connected";
+
+
+// Add disconnect listener ONLY ONCE
+if(!bleDevice._listenerAdded){
+
+bleDevice.addEventListener(
+'gattserverdisconnected',
+()=>{
+
+document.getElementById("bleStatus")
+.innerText="Disconnected";
+
+console.log("BLE Disconnected");
+
+// Try reconnect
+scheduleReconnect();
+
+});
+
+bleDevice._listenerAdded = true;
+
+}
+
+// Setup characteristics
+await setupBLECharacteristics();
+
+}
+catch(e){
+
+document.getElementById("bleStatus")
+.innerText="Connection Failed";
+
+console.error(e);
+
+}
+
+}
+async function reconnectBLE(){
+
+if(!bleDevice) return;
+
+try{
+
+console.log("Reconnecting BLE...");
+
+bleServer=
+await bleDevice.gatt.connect();
+
+document.getElementById("bleStatus")
+.innerText="Connected";
+
+await setupBLECharacteristics();
+
+}
+catch(e){
+
+console.log("Reconnect failed");
+
+scheduleReconnect();
+
+}
+
+}
+async function setupBLECharacteristics(){
+
+let service=
+await bleServer.getPrimaryService(
+"6e400001-b5a3-f393-e0a9-e50e24dcca9e"
+);
+
+bleChar=
+await service.getCharacteristic(
+"6e400002-b5a3-f393-e0a9-e50e24dcca9e"
+);
+
+}
+function disconnectMQTT(){
+
+if(client.connected){
+
+client.end(true);
+
+document.getElementById("mqttStatus")
+.innerText="Disconnected";
+
+}
+
+}
+function scheduleReconnect(){
+
+if(reconnectTimer)
+clearTimeout(reconnectTimer);
+
+document.getElementById("bleStatus")
+.innerText="Reconnecting...";
+
+reconnectTimer=setTimeout(()=>{
+
+if(currentMode==="ble"){
+reconnectBLE();
+}
+
+},1000);
 
 }
 // --- Voice ---
@@ -500,7 +795,7 @@ function voiceCommand(cmd){
   const deviceMap={"room 1 light":0,"room 1 fan":1,"room 1 tube":2,"room 1 socket":3,"room 2 light":4,"room 2 fan":5,"room 2 bulb":6,"room 2 socket":7}
   const roomMap={"room 1":[0,1,2,3],"room 2":[4,5,6,7]}
   const typeMap={"light":[0,4,2,6],"fan":[1,5],"tube":[2],"bulb":[6],"socket":[3,7]}
-  const control=(ids,action)=>ids.forEach(id=>client.publish(topicCmd,id+(action?"1":"0")))
+  const control=(ids,action)=>ids.forEach(id=>sendCommand(id+(action?"1":"0")))
   let m=cmd.match(/(\d+)\s*minutes?/), timerMinutes=m?parseInt(m[1]):null
   let feedback=[], except=cmd.match(/except\s+([a-z\s,]+)/), exceptIds=[]
   if(except){ except[1].split(",").map(s=>s.trim()).forEach(t=>{ if(typeMap[t]) exceptIds.push(...typeMap[t]) }) }
@@ -511,7 +806,7 @@ function voiceCommand(cmd){
     let ids=roomMap[roomMention].filter(id=>typeMap[typeMention].includes(id)).filter(id=>!exceptIds.includes(id))
     if(cmd.includes("on")){ control(ids,true); feedback.push(`${typeMention} in ${roomMention} turned on`) }
     if(cmd.includes("off")){ control(ids,false); feedback.push(`${typeMention} in ${roomMention} turned off`) }
-    if(timerMinutes){ ids.forEach(id=>client.publish(topicCmd,"T"+id+timerMinutes)); feedback.push(`Timer set for ${typeMention} in ${roomMention} ${timerMinutes} minutes`) }
+    if(timerMinutes){ ids.forEach(id=>sendCommand("T"+id+timerMinutes)); feedback.push(`Timer set for ${typeMention} in ${roomMention} ${timerMinutes} minutes`) }
   }
   if(roomMention&&(cmd.includes("turn on all")||cmd.includes("turn off all")||cmd.includes("all on")||cmd.includes("all off"))){
     let ids=roomMap[roomMention].filter(id=>!exceptIds.includes(id))
@@ -522,18 +817,71 @@ function voiceCommand(cmd){
     let ids=typeMap[typeMention].filter(id=>!exceptIds.includes(id))
     if(cmd.includes("on")){ control(ids,true); feedback.push(`All ${typeMention} turned on`) }
     if(cmd.includes("off")){ control(ids,false); feedback.push(`All ${typeMention} turned off`) }
-    if(timerMinutes){ ids.forEach(id=>client.publish(topicCmd,"T"+id+timerMinutes)); feedback.push(`Timer set for all ${typeMention} ${timerMinutes} minutes`) }
+    if(timerMinutes){ ids.forEach(id=>sendCommand("T"+id+timerMinutes)); feedback.push(`Timer set for all ${typeMention} ${timerMinutes} minutes`) }
   }
   if(cmd.includes("everything")||cmd.includes("all devices")){
     let allIds=Array.from({length:8},(_,i)=>i).filter(id=>!exceptIds.includes(id))
     let action=cmd.includes("on")||cmd.includes("turn on")
     control(allIds,action)
-    if(timerMinutes){ allIds.forEach(id=>client.publish(topicCmd,"T"+id+timerMinutes)); feedback.push(`Timer set for all devices ${timerMinutes} minutes`) }
+    if(timerMinutes){ allIds.forEach(id=>sendCommand("T"+id+timerMinutes)); feedback.push(`Timer set for all devices ${timerMinutes} minutes`) }
     feedback.push(`All devices turned ${action?"on":"off"}`)
   }
-  if(cmd.includes("status")||cmd.includes("current status")||cmd.includes("check")){ client.publish(topicCmd,"status"); feedback.push("Sending current status") }
+  if(cmd.includes("status")||cmd.includes("current status")||cmd.includes("check")){ sendCommand("status"); feedback.push("Sending current status") }
   if(feedback.length>0) speak(feedback.join(". "))
   else speak("Command not recognized. Please specify a room or device.")
+}
+// ---------- MODE CONTROL ----------
+
+let currentMode="wifi";
+
+function connectMQTT(){
+
+if(!client.connected){
+
+client.reconnect();
+
+document.getElementById("mqttStatus")
+.innerText="Connecting...";
+
+}
+
+}
+
+function setMode(mode){
+
+currentMode=mode;
+
+// Tab UI
+document.getElementById("wifiTab")
+.classList.toggle("active",mode==="wifi");
+
+document.getElementById("bleTab")
+.classList.toggle("active",mode==="ble");
+
+// Status UI
+document.getElementById("wifiStatusBox")
+.style.display = mode==="wifi"
+? "block"
+: "none";
+
+document.getElementById("bleStatusBox")
+.style.display = mode==="ble"
+? "block"
+: "none";
+
+// Connect logic
+if(mode==="wifi"){
+
+connectMQTT();
+
+}
+else{
+
+disconnectMQTT();
+startBLEClient();
+
+}
+
 }
 </script>
 </body>
