@@ -629,19 +629,17 @@ async function startBLEClient(){
 
 try{
 
-// Show connecting immediately
-document.getElementById("bleStatus")
-.innerText="Connecting...";
+console.log("STEP 1: BLE start");
 
-// Request device only first time
+document.getElementById("bleStatus").innerText="Connecting...";
+
 if(!bleDevice){
 
-bleDevice =
-await navigator.bluetooth.requestDevice({
+console.log("STEP 2: requestDevice");
 
-filters:[{
-namePrefix:"RanjanaSmartHome"
-}],
+bleDevice = await navigator.bluetooth.requestDevice({
+
+filters:[{ namePrefix:"RanjanaSmartHome" }],
 
 optionalServices:[
 "6e400001-b5a3-f393-e0a9-e50e24dcca9e"
@@ -649,75 +647,70 @@ optionalServices:[
 
 });
 
-lastDeviceId = bleDevice.id;
+console.log("STEP 3: device selected", bleDevice.name);
 
 }
 
-// Connect GATT
-bleServer =
-await bleDevice.gatt.connect();
+console.log("STEP 4: connecting gatt");
 
-document.getElementById("bleStatus")
-.innerText="Connected";
+bleServer = await bleDevice.gatt.connect();
 
+console.log("STEP 5: connected");
 
-// Add disconnect listener ONLY ONCE
-if(!bleDevice._listenerAdded){
+document.getElementById("bleStatus").innerText="Connected";
 
-bleDevice.addEventListener(
-'gattserverdisconnected',
-()=>{
-
-document.getElementById("bleStatus")
-.innerText="Disconnected";
-
-console.log("BLE Disconnected");
-
-// Try reconnect
-scheduleReconnect();
-
-});
-
-bleDevice._listenerAdded = true;
-
-}
-
-// Setup characteristics
 await setupBLECharacteristics();
 
 }
 catch(e){
 
-document.getElementById("bleStatus")
-.innerText="Connection Failed";
+console.log("BLE ERROR:", e);
 
-console.error(e);
+document.getElementById("bleStatus").innerText="Connection Failed";
 
 }
 
 }
 async function reconnectBLE(){
 
-if(!bleDevice) return;
-
 try{
 
-console.log("Reconnecting BLE...");
+console.log("BLE reconnect attempt...");
 
-bleServer=
-await bleDevice.gatt.connect();
+if(!bleDevice){
+throw "No BLE device stored";
+}
+
+// If already connected, do nothing
+if(bleDevice.gatt && bleDevice.gatt.connected){
+console.log("Already connected");
+return;
+}
+
+document.getElementById("bleStatus")
+.innerText="Reconnecting...";
+
+// IMPORTANT: reconnect
+bleServer = await bleDevice.gatt.connect();
 
 document.getElementById("bleStatus")
 .innerText="Connected";
 
 await setupBLECharacteristics();
 
+console.log("BLE reconnected");
+
 }
 catch(e){
 
-console.log("Reconnect failed");
+console.log("Reconnect failed:", e);
 
-scheduleReconnect();
+// Retry after delay
+setTimeout(()=>{
+if(currentMode==="ble"){
+reconnectBLE();
+}
+}, 2000);
 
 }
 
