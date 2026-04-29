@@ -73,13 +73,53 @@ box-sizing:border-box;
 .fanPanel input[type=range]{
 
 width:95%;
-
 margin:12px 0;
 
-accent-color:#22c55e;
+appearance:none;
+-webkit-appearance:none;
+
+height:6px;
+border-radius:5px;
+
+background:#1e293b;
+
+outline:none;
 
 }
 
+/* Thumb */
+.fanPanel input[type=range]::-webkit-slider-thumb{
+
+-webkit-appearance:none;
+
+appearance:none;
+
+height:16px;
+width:16px;
+
+border-radius:50%;
+
+background:#22c55e;
+
+cursor:pointer;
+
+margin-top:-5px;
+
+}
+
+/* Firefox */
+.fanPanel input[type=range]::-moz-range-thumb{
+
+height:16px;
+width:16px;
+
+border-radius:50%;
+
+background:#22c55e;
+
+cursor:pointer;
+
+}
 /* Arrow rotate */
 
 .fanArrow{
