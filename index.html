@@ -304,6 +304,12 @@ value="0"
 oninput="
 setFanSpeed(${fanRoom},this.value);
 this.nextElementSibling.innerText='Speed: '+this.value;
+
+if(this.value > 0){
+this.style.background='#22c55e';
+}else{
+this.style.background='#1e293b';
+}
 ">
 
 <div style="
