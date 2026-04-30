@@ -1425,6 +1425,9 @@ window.SpeechRecognition || window.webkitSpeechRecognition;
 
 let rec = null;
 let isRunning = false;
+let voiceIdleTimer = null;
+const voicePopup = document.getElementById("voicePopup");
+const waves = document.querySelectorAll(".wave");
 
 let awake = false;
 let wakeWord = "jarvis";
@@ -1461,8 +1464,14 @@ console.log("Speech error:", e);
 
 
 // ---------- NORMALIZE ----------
-function normalizeVoice(text){
-if(!text) return "";
+text = normalizeVoice(text);
+buffer = text;
+
+// ⭐ SHOW LIVE TEXT
+if(text && awake){
+  showVoicePopup(text);
+  resetVoiceIdle();
+}
 
 return text
 .toLowerCase()
@@ -1572,7 +1581,28 @@ speak("Microphone permission needed");
 restartEngine();
 }
 
+function showVoicePopup(text){
+  voicePopup.style.display = "block";
+  voicePopup.innerText = text;
 
+  // show wave animation
+  waves.forEach(w => w.style.display = "block");
+}
+
+function hideVoicePopup(){
+  voicePopup.style.display = "none";
+
+  // hide wave animation
+  waves.forEach(w => w.style.display = "none");
+}
+
+function resetVoiceIdle(){
+  clearTimeout(voiceIdleTimer);
+
+  voiceIdleTimer = setTimeout(()=>{
+    hideVoicePopup();
+  }, 1500); // idle delay
+}
 // ---------- VOICE INPUT ----------
 function handleVoice(e){
 
@@ -1598,9 +1628,11 @@ speak("Yes?");
 clearTimeout(awakeTimeout);
 
 awakeTimeout = setTimeout(()=>{
-awake = false;
-buffer = "";
-console.log("sleep mode");
+  awake = false;
+  buffer = "";
+  console.log("sleep mode");
+
+  hideVoicePopup();   // ⭐ add this
 }, 10000);
 }
 
