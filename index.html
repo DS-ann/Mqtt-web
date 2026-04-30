@@ -120,6 +120,7 @@ background:#22c55e;
 cursor:pointer;
 
 }
+
 /* Arrow rotate */
 
 .fanArrow{
@@ -345,11 +346,14 @@ oninput="
 setFanSpeed(${fanRoom},this.value);
 this.nextElementSibling.innerText='Speed: '+this.value;
 
-if(this.value > 0){
-this.style.background='#22c55e';
-}else{
-this.style.background='#1e293b';
-}
+let min = this.min || 0;
+let max = this.max || 4;
+let val = this.value;
+
+let percent = (val - min) * 100 / (max - min);
+
+this.style.background =
+'linear-gradient(to right, #22c55e ' + percent + '%, #1e293b ' + percent + '%)';
 ">
 
 <div style="
@@ -450,7 +454,23 @@ sendCommand("status");
 
 }
 
+function updateSliderFill(slider){
+  let min = slider.min || 0;
+  let max = slider.max || 4;
+  let val = slider.value;
 
+  let percent = (val - min) * 100 / (max - min);
+
+  slider.style.background =
+  `linear-gradient(to right, #22c55e ${percent}%, #1e293b ${percent}%)`;
+}
+
+// Apply to all sliders
+document.querySelectorAll(".fanPanel input[type=range]").forEach(s=>{
+  updateSliderFill(s);
+
+  s.addEventListener("input", ()=>updateSliderFill(s));
+});
 
 // ---------- PARSE DATA FROM ESP ----------
 
@@ -1400,505 +1420,348 @@ scheduleReconnect();
 }
 
 }
-// ---------- SPEAK FUNCTION ----------
+let SpeechRecognition =
+window.SpeechRecognition || window.webkitSpeechRecognition;
 
+let rec = null;
+let isRunning = false;
+
+let awake = false;
+let wakeWord = "jarvis";
+
+let awakeTimeout = null;
+let lastCommandTime = 0;
+let buffer = "";
+
+// ---------- CONTEXT MEMORY ----------
+let context = {
+room: null,
+type: null,
+action: null
+};
+
+
+// ---------- SPEAK ----------
 function speak(text){
-
 if(!text) return;
 
 try{
+speechSynthesis.cancel();
 
-let msg =
-new SpeechSynthesisUtterance(text);
+let msg = new SpeechSynthesisUtterance(text);
+msg.rate = 1;
+msg.pitch = 1;
 
-speechSynthesis.cancel(); // stop previous speech
 speechSynthesis.speak(msg);
 
-}
-catch(e){
-
+}catch(e){
 console.log("Speech error:", e);
-
+}
 }
 
-}
 
-
-
-// ---------- NORMALIZE VOICE ----------
-
+// ---------- NORMALIZE ----------
 function normalizeVoice(text){
-
 if(!text) return "";
 
-text = text.toLowerCase();
-
-// Numbers
-text = text
-.replace(/\bone\b/g,"1")
-.replace(/\btwo\b/g,"2");
-
-// Common fixes
-text = text
-.replace(/\bof\b/g,"off")
+return text
+.toLowerCase()
 .replace(/\bturn on\b/g,"on")
-.replace(/\bturn off\b/g,"off");
-
-return text;
-
+.replace(/\bturn off\b/g,"off")
+.replace(/\bswitch on\b/g,"on")
+.replace(/\bswitch off\b/g,"off")
+.replace(/\bone\b/g,"1")
+.replace(/\btwo\b/g,"2")
+.replace(/\bthree\b/g,"3")
+.replace(/\bof\b/g,"off");
 }
 
 
+// ---------- SPLIT ----------
+function splitCommands(cmd){
+return cmd
+.split(/\band\b|\bthen\b|,/)
+.map(s => s.trim())
+.filter(Boolean);
+}
 
-// ---------- START VOICE ----------
 
-function startVoice(){
+// ---------- ROOM RESOLVE (WITH MEMORY) ----------
+function resolveRoom(cmd, roomMap){
+let room = Object.keys(roomMap)
+.find(r => cmd.includes(r));
 
-// Check browser support
-const SpeechRecognition =
-window.SpeechRecognition ||
-window.webkitSpeechRecognition;
+if(room){
+context.room = room;
+return room;
+}
+
+return context.room;
+}
+
+
+// ---------- TYPE RESOLVE (WITH MEMORY) ----------
+function resolveType(cmd, typeMap){
+let type = Object.keys(typeMap)
+.find(t => cmd.includes(t));
+
+if(type){
+context.type = type;
+return type;
+}
+
+return context.type;
+}
+
+
+// ---------- START ENGINE ----------
+function startVoiceEngine(){
 
 if(!SpeechRecognition){
-
-alert("Voice recognition not supported in this browser");
+alert("Speech not supported");
 return;
-
 }
 
-const rec = new SpeechRecognition();
+if(rec){
+rec.stop();
+rec = null;
+}
+
+rec = new SpeechRecognition();
 
 rec.lang = "en-US";
-rec.interimResults = false;
-rec.maxAlternatives = 1;
+rec.continuous = true;
+rec.interimResults = true;
 
-let popup =
-document.getElementById("voicePopup");
-
-let waves =
-document.querySelectorAll(".wave");
-
-// Show animation
-waves.forEach(w=>w.style.display="block");
-
-popup.innerText="🎤 Listening...";
-popup.style.display="block";
+rec.onresult = handleVoice;
+rec.onerror = handleError;
+rec.onend = restartEngine;
 
 rec.start();
 
+isRunning = true;
+console.log("Voice engine started");
+}
 
-// RESULT
-rec.onresult = (e)=>{
 
+// ---------- RESTART SAFE ----------
+function restartEngine(){
+isRunning = false;
+
+setTimeout(()=>{
 try{
+if(rec){
+rec.start();
+isRunning = true;
+}
+}catch(e){
+console.log("restart fail", e);
+}
+}, 500);
+}
 
-let text =
-e.results[0][0].transcript;
+
+// ---------- ERROR ----------
+function handleError(e){
+console.log("Speech error:", e.error);
+
+if(e.error === "not-allowed"){
+speak("Microphone permission needed");
+}
+
+restartEngine();
+}
+
+
+// ---------- VOICE INPUT ----------
+function handleVoice(e){
+
+let text = "";
+
+for(let i = e.resultIndex; i < e.results.length; i++){
+text += e.results[i][0].transcript;
+}
 
 text = normalizeVoice(text);
+buffer = text;
 
-popup.innerText = text;
+console.log("Heard:", text);
 
+
+// ---------- WAKE WORD ----------
+if(!awake){
+
+if(text.includes(wakeWord)){
+awake = true;
+speak("Yes?");
+
+clearTimeout(awakeTimeout);
+
+awakeTimeout = setTimeout(()=>{
+awake = false;
+buffer = "";
+console.log("sleep mode");
+}, 10000);
+}
+
+return;
+}
+
+
+// ---------- COMMAND MODE ----------
+if(awake){
+
+if(Date.now() - lastCommandTime < 700) return;
+
+lastCommandTime = Date.now();
+
+text = text.replace(wakeWord,"").trim();
+
+if(text.length > 0){
 voiceCommand(text);
-
+awake = false;
 }
-catch(err){
-
-console.log("Voice parse error:", err);
-
 }
-
-setTimeout(()=>{
-
-popup.style.display="none";
-
-},2000);
-
-waves.forEach(w=>w.style.display="none");
-
-};
-
-
-// ERROR
-rec.onerror = (e)=>{
-
-console.log("Voice error:", e.error);
-
-popup.innerText="Voice error";
-
-setTimeout(()=>{
-
-popup.style.display="none";
-
-},1500);
-
-waves.forEach(w=>w.style.display="none");
-
-};
-
-
-// END
-rec.onend = ()=>{
-
-waves.forEach(w=>w.style.display="none");
-
-};
-rec.stop();
-
 }
 
 
-
-// ---------- FULL VOICE COMMAND ENGINE ----------
-
+// ---------- MAIN ENGINE ----------
 function voiceCommand(cmd){
 
 if(!cmd) return;
 
 cmd = cmd.toLowerCase();
 
-
-// ---------- DEVICE MAPS ----------
-
 const roomMap = {
-
 "room 1":[0,1,2,3],
 "room 2":[4,5,6,7]
-
 };
 
 const typeMap = {
-
 "light":[0,4,2,6],
 "fan":[1,5],
 "tube":[2],
 "bulb":[6],
 "socket":[3,7]
-
 };
 
 
-// ---------- CONTROL FUNCTION ----------
-
+// ---------- CONTROL ----------
 function control(ids,action){
+if(!ids || !ids.length) return;
 
 ids.forEach(id=>{
-
-sendCommand(
-id + (action ? "1" : "0")
-);
-
+sendCommand(id + (action ? "1":"0"));
 });
-
 }
 
 
-// ---------- TIMER PARSE ----------
+// ---------- EXCEPT ----------
+function parseExcept(cmd, typeMap){
+let ids = [];
 
-let timerMatch =
-cmd.match(/(\d+)\s*minutes?/);
-
-let timerMinutes =
-timerMatch ? parseInt(timerMatch[1]) : null;
-
-
-// ---------- EXCEPT DEVICES ----------
-
-let exceptMatch =
-cmd.match(/except\s+([a-z\s,]+)/);
-
-let exceptIds = [];
-
-if(exceptMatch){
-
-exceptMatch[1]
+let m = cmd.match(/except\s+([a-z\s,]+)/);
+if(m){
+m[1]
 .split(",")
-.map(s=>s.trim())
+.map(t => t.trim())
 .forEach(t=>{
-
 if(typeMap[t]){
-
-exceptIds.push(...typeMap[t]);
-
+ids.push(...typeMap[t]);
 }
-
 });
+}
 
+return ids;
 }
 
 
-// ---------- DETECT ROOM ----------
-
-let roomMention =
-Object.keys(roomMap)
-.find(r=>cmd.includes(r));
-
-if(roomMention){
-
-lastRoom = roomMention;
-
-}
-else{
-
-roomMention = lastRoom;
-
-}
-
-
-// ---------- DETECT TYPE ----------
-
-let typeMention =
-Object.keys(typeMap)
-.find(t=>cmd.includes(t));
-
-if(typeMention){
-
-lastDeviceType = typeMention;
-
-}
-else{
-
-typeMention = lastDeviceType;
-
-}
-
-
+// ---------- PROCESS ----------
+let parts = splitCommands(cmd);
 let feedback = [];
+
+for(let part of parts){
+
+let c = part.trim();
+
+let room = resolveRoom(c, roomMap);
+let type = resolveType(c, typeMap);
+
+let exceptIds = parseExcept(c, typeMap);
 
 
 // ---------- ROOM + TYPE ----------
+if(room && type && typeMap[type]){
 
-if(roomMention && typeMention){
+let ids = roomMap[room]
+.filter(id => typeMap[type].includes(id))
+.filter(id => !exceptIds.includes(id));
 
-let ids =
-roomMap[roomMention]
-.filter(id=>
-typeMap[typeMention]
-.includes(id)
-)
-.filter(id=>
-!exceptIds.includes(id)
-);
-
-if(cmd.includes("on")){
-
+if(c.includes("on")){
 control(ids,true);
-
-feedback.push(
-typeMention +
-" in " +
-roomMention +
-" turned on"
-);
-
+feedback.push(`${type} in ${room} ON`);
 }
 
-if(cmd.includes("off")){
-
+if(c.includes("off")){
 control(ids,false);
-
-feedback.push(
-typeMention +
-" in " +
-roomMention +
-" turned off"
-);
-
+feedback.push(`${type} in ${room} OFF`);
 }
-
-if(timerMinutes){
-
-ids.forEach(id=>{
-
-sendCommand(
-"T" + id + timerMinutes
-);
-
-});
-
-feedback.push(
-"Timer set for " +
-typeMention +
-" in " +
-roomMention +
-" " +
-timerMinutes +
-" minutes"
-);
-
-}
-
 }
 
 
 // ---------- ROOM ALL ----------
+else if(room && c.includes("all")){
 
-if(
-roomMention &&
-(
-cmd.includes("turn on all") ||
-cmd.includes("turn off all") ||
-cmd.includes("all on") ||
-cmd.includes("all off")
-)
-){
+let ids = roomMap[room]
+.filter(id => !exceptIds.includes(id));
 
-let ids =
-roomMap[roomMention]
-.filter(id=>
-!exceptIds.includes(id)
-);
-
-let action =
-cmd.includes("on");
-
+let action = c.includes("on");
 control(ids,action);
 
-feedback.push(
-roomMention +
-" all devices turned " +
-(action ? "on" : "off")
-);
-
+feedback.push(`${room} all ${action?"ON":"OFF"}`);
 }
 
 
-// ---------- TYPE ALL ----------
+// ---------- TYPE ONLY ----------
+else if(type && typeMap[type] && !room){
 
-if(typeMention && !roomMention){
+let ids = typeMap[type]
+.filter(id => !exceptIds.includes(id));
 
-let ids =
-typeMap[typeMention]
-.filter(id=>
-!exceptIds.includes(id)
-);
+let action = c.includes("on");
+control(ids,action);
 
-if(cmd.includes("on")){
-
-control(ids,true);
-
-feedback.push(
-"All " +
-typeMention +
-" turned on"
-);
-
-}
-
-if(cmd.includes("off")){
-
-control(ids,false);
-
-feedback.push(
-"All " +
-typeMention +
-" turned off"
-);
-
-}
-
-if(timerMinutes){
-
-ids.forEach(id=>{
-
-sendCommand(
-"T" + id + timerMinutes
-);
-
-});
-
-feedback.push(
-"Timer set for all " +
-typeMention +
-" " +
-timerMinutes +
-" minutes"
-);
-
-}
-
+feedback.push(`All ${type} ${action?"ON":"OFF"}`);
 }
 
 
 // ---------- EVERYTHING ----------
+else if(c.includes("everything") || c.includes("all devices")){
 
-if(
-cmd.includes("everything") ||
-cmd.includes("all devices")
-){
+let allIds = Array.from({length:8},(_,i)=>i)
+.filter(id => !exceptIds.includes(id));
 
-let allIds =
-Array.from(
-{length:8},
-(_,i)=>i
-).filter(id=>
-!exceptIds.includes(id)
-);
-
-let action =
-cmd.includes("on");
-
+let action = c.includes("on");
 control(allIds,action);
 
-if(timerMinutes){
-
-allIds.forEach(id=>{
-
-sendCommand(
-"T" + id + timerMinutes
-);
-
-});
-
-feedback.push(
-"Timer set for all devices " +
-timerMinutes +
-" minutes"
-);
-
+feedback.push(`All devices ${action?"ON":"OFF"}`);
 }
-
-feedback.push(
-"All devices turned " +
-(action ? "on" : "off")
-);
-
 }
 
 
 // ---------- STATUS ----------
-
-if(
-cmd.includes("status") ||
-cmd.includes("check")
-){
-
+if(cmd.includes("status")){
 sendCommand("status");
-
-feedback.push(
-"Sending current status"
-);
-
+feedback.push("Getting status");
 }
 
 
-// ---------- SPEAK RESULT ----------
-
-if(feedback.length > 0){
-
-speak(
-feedback.join(". ")
-);
-
+// ---------- RESPONSE ----------
+if(feedback.length){
+speak(feedback.join(". "));
+}else{
+speak("Command not understood");
 }
-else{
-
-speak(
-"Command not recognized. Please specify a room or device."
-);
-
-}
-
 }
 // ---------- MODE CONTROL ----------
 
