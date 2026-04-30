@@ -1587,6 +1587,7 @@ return context.type;
 function startVoiceEngine(){
 waves.forEach(w => w.style.display = "block");
 document.querySelector(".mic").classList.add("active"); // ⭐
+  showVoicePopup();   
 if(!SpeechRecognition){
 alert("Speech not supported");
 return;
