@@ -134,6 +134,32 @@ transition:transform 0.3s ease;
 transform:rotate(180deg);
 
 }
+#voicePopup{
+  position:fixed;
+  top:50%;
+  left:50%;
+  transform:translate(-50%,-50%);
+  background:#1e293b;
+  padding:20px 30px;
+  border-radius:12px;
+  font-size:18px;
+  display:none;
+  z-index:1000;
+  width:300px;
+  text-align:left;
+}
+
+#voiceFinal{
+  font-weight:600;
+  color:white;
+  min-height:24px;
+}
+
+#voiceInterim{
+  color:#94a3b8;
+  font-size:14px;
+  margin-top:6px;
+}
 .device.on .light{animation:glow 1.5s infinite alternate;}
 @keyframes spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}
 @keyframes glow{from{text-shadow:0 0 5px #fff}to{text-shadow:0 0 20px yellow}}
@@ -206,7 +232,10 @@ Bluetooth:
 <h3>Room 2 Usage</h3>
 <canvas id="usageChart2" width="350" height="200"></canvas>
 
-<div id="voicePopup">Listening...</div>
+<div id="voicePopup">
+  <div id="voiceFinal"></div>
+  <div id="voiceInterim" style="opacity:0.5;"></div>
+</div>
 <div class="wave"></div><div class="wave"></div><div class="wave"></div>
 <button class="mic" onclick="startVoiceEngine()">🎤</button>
 
@@ -1464,16 +1493,10 @@ console.log("Speech error:", e);
 
 
 // ---------- NORMALIZE ----------
-text = normalizeVoice(text);
-buffer = text;
+function normalizeVoice(text){
+if(!text) return "";
 
-// ⭐ SHOW LIVE TEXT
-if(text && awake){
-  showVoicePopup(text);
-  resetVoiceIdle();
-}
-
-return text
+text = text
 .toLowerCase()
 .replace(/\bturn on\b/g,"on")
 .replace(/\bturn off\b/g,"off")
@@ -1483,8 +1506,9 @@ return text
 .replace(/\btwo\b/g,"2")
 .replace(/\bthree\b/g,"3")
 .replace(/\bof\b/g,"off");
-}
 
+return text;
+}
 
 // ---------- SPLIT ----------
 function splitCommands(cmd){
@@ -1583,79 +1607,88 @@ restartEngine();
 
 function showVoicePopup(text){
   voicePopup.style.display = "block";
-  voicePopup.innerText = text;
 
-  // show wave animation
-  waves.forEach(w => w.style.display = "block");
-}
+  // smooth typing effect feel
+  voicePopup.innerText = "";
+  let i = 0;
 
-function hideVoicePopup(){
-  voicePopup.style.display = "none";
-
-  // hide wave animation
-  waves.forEach(w => w.style.display = "none");
-}
-
-function resetVoiceIdle(){
-  clearTimeout(voiceIdleTimer);
-
-  voiceIdleTimer = setTimeout(()=>{
-    hideVoicePopup();
-  }, 1500); // idle delay
+  let t = setInterval(()=>{
+    voicePopup.innerText = text.slice(0, i++);
+    if(i > text.length) clearInterval(t);
+  }, 15);
 }
 // ---------- VOICE INPUT ----------
 function handleVoice(e){
 
-let text = "";
+let finalText = "";
+let interimText = "";
 
+// build streams properly
 for(let i = e.resultIndex; i < e.results.length; i++){
-text += e.results[i][0].transcript;
+
+let transcript = e.results[i][0].transcript;
+
+if(e.results[i].isFinal){
+finalText += transcript + " ";
+}else{
+interimText += transcript;
+}
 }
 
-text = normalizeVoice(text);
-buffer = text;
+// normalize live stream
+let live = normalizeVoice(finalText + interimText);
 
-console.log("Heard:", text);
+// =======================
+// LIVE UI UPDATE
+// =======================
+if(awake){
+
+document.getElementById("voicePopup").style.display = "block";
+
+document.getElementById("voiceFinal").innerText = finalText || "";
+document.getElementById("voiceInterim").innerText = interimText || "...";
+
+resetVoiceIdle();
+}
 
 
-// ---------- WAKE WORD ----------
+// =======================
+// WAKE WORD DETECTION
+// =======================
 if(!awake){
 
-if(text.includes(wakeWord)){
+if(live.includes(wakeWord)){
 awake = true;
 speak("Yes?");
 
-clearTimeout(awakeTimeout);
+document.getElementById("voicePopup").style.display = "block";
+document.getElementById("voiceFinal").innerText = "Listening...";
+document.getElementById("voiceInterim").innerText = "";
 
-awakeTimeout = setTimeout(()=>{
-  awake = false;
-  buffer = "";
-  console.log("sleep mode");
-
-  hideVoicePopup();   // ⭐ add this
-}, 10000);
 }
-
 return;
 }
 
 
-// ---------- COMMAND MODE ----------
-if(awake){
+// =======================
+// COMMAND EXECUTION (FINAL ONLY)
+// =======================
+if(finalText && awake){
 
-if(Date.now() - lastCommandTime < 700) return;
+let cmd = normalizeVoice(finalText);
+cmd = cmd.replace(wakeWord,"").trim();
 
-lastCommandTime = Date.now();
-
-text = text.replace(wakeWord,"").trim();
-
-if(text.length > 0){
-voiceCommand(text);
+if(cmd.length > 0){
+voiceCommand(cmd);
 awake = false;
-}
+hideVoicePopup();
 }
 }
 
+}
+function hideVoicePopup(){
+document.getElementById("voicePopup").style.display = "none";
+}
 
 // ---------- MAIN ENGINE ----------
 function voiceCommand(cmd){
