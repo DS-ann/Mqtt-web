@@ -269,8 +269,7 @@ Bluetooth:
 <button class="mic" onclick="startVoiceEngine()">🎤</button>
 
 <script>
-twemoji.parse(document.body)
-
+twemoji.parse(document.querySelector(".header"))
 // --- MQTT ---
 const broker="wss://5dba91287f8248c1a30195053d3862ed.s1.eu.hivemq.cloud:8884/mqtt"
 const topicCmd="home/esp32/commands"
@@ -568,7 +567,7 @@ panel1.querySelector("div");
 if(slider1){
 
 slider1.value = f1;
-
+updateSliderFill(slider1);
 }
 
 if(label1){
@@ -598,7 +597,7 @@ panel2.querySelector("div");
 if(slider2){
 
 slider2.value = f2;
-
+updateSliderFill(slider2);
 }
 
 if(label2){
@@ -1132,7 +1131,7 @@ a.classList.remove("open");
 if(panel.style.maxHeight &&
 panel.style.maxHeight !== "0px"){
 
-panel.style.maxHeight = null;
+panel.style.maxHeight = "0px";
 
 arrow.classList.remove("open");
 
@@ -1400,10 +1399,8 @@ await bleService.getCharacteristic(
 // Enable notifications
 await bleNotifyChar.startNotifications();
 
-bleNotifyChar.addEventListener(
-"characteristicvaluechanged",
-handleBLEMessage
-);
+bleNotifyChar.removeEventListener("characteristicvaluechanged", handleBLEMessage);
+bleNotifyChar.addEventListener("characteristicvaluechanged", handleBLEMessage);
 
 console.log("BLE characteristics ready");
 
@@ -1587,7 +1584,7 @@ return context.type;
 function startVoiceEngine(){
 waves.forEach(w => w.style.display = "block");
 document.querySelector(".mic").classList.add("active"); // ⭐
-  showVoicePopup();   
+showVoicePopup();   // ⭐ FORCE popup immediately
 if(!SpeechRecognition){
 alert("Speech not supported");
 return;
@@ -1607,9 +1604,12 @@ rec.interimResults = true;
 rec.onresult = handleVoice;
 rec.onerror = handleError;
 rec.onend = () => {
-if(currentMode === "wifi" || currentMode === "ble"){
-restartEngine();
-}
+  waves.forEach(w => w.style.display = "none");
+  document.querySelector(".mic").classList.remove("active");
+
+  if(currentMode === "wifi" || currentMode === "ble"){
+    restartEngine();
+  }
 };
 
 rec.start();
@@ -1651,13 +1651,11 @@ restartEngine();
 
 function showVoicePopup(finalText="", interimText=""){
   const popup = document.getElementById("voicePopup");
-
-  if(popup.style.display !== "block"){
-    popup.style.display = "block"; // only once
-  }
+popup.style.display = "block";
 
   if(finalText){
-    document.getElementById("voiceFinal").innerText = finalText;
+   const el = document.getElementById("voiceFinal");
+if(el) el.innerText = finalText;
   }else{
     document.getElementById("voiceFinal").innerHTML =
       "Listening <span class='listening-dot'></span>";
